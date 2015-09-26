@@ -67,10 +67,10 @@ function bot:error(...) return self.logger("error", ...) end
 function bot:info(...)  return self.logger("info", ...)  end
 function bot:warn(...)  return self.logger("warn", ...)  end
 
-function bot:add_plugin(name)
+function bot:add_plugin(name, plugin_config, global_config)
 	local f = require("plugin." .. name)
 	if type(f) == "function" then
-		f(self)
+		f(self, plugin_config, global_config)
 		self:info("plugin '" .. name .. "' activated")
 	end
 	return self
@@ -168,26 +168,71 @@ function bot:connect(jid, password)
 	return self
 end
 
--- bot:set_debug(true, true)
--- bot:set_debug(true, false)
 
-local function echo_message (event)
-	if event.body:match("^luabot[:,]") then
-		event:reply(event.body)
+local b = bot.new()
+
+local rooms = {}
+local plugins = {}
+local config = setmetatable({}, { __index = {
+	room = function (name)
+		return function (cfg)
+			if type(cfg) ~= "table" then
+				error("options for room '" .. name .. "' must be a table")
+			end
+			rooms[name] = cfg
+		end
+	end;
+	plugin = function (name)
+		return function (cfg)
+			if type(cfg) ~= "table" then
+				error("options for plugin '" .. name .. "' must be a table")
+			end
+			plugins[name] = cfg
+		end
+	end;
+}})
+local config_chunk, err = loadfile("config.lua", "t", config)
+if not config_chunk then
+	b:error("Cannot load 'config.lua': " .. tostring(err))
+	return 1
+end
+local ok, err = pcall(config_chunk)
+if not ok then
+	b:error("Cannot process 'config.lua': " .. tostring(err))
+	return 1
+end
+
+if not config.jid then
+	b:error("No 'jid' in configuration")
+	return 1
+end
+if not config.password then
+	b:error("No 'password' in configuration")
+	return 1
+end
+config.rooms, config.plugins = rooms, plugins
+
+-- Configure debugging log
+b:set_debug(config.debug_log, config.raw_log)
+
+-- Load the MUC plug-in first, with the given configuration (if any)
+b:add_plugin("muc", config.plugins.muc or {})
+config.plugins.muc = nil
+for name, cfg in pairs(config.plugins) do
+	b:add_plugin(name, cfg)
+end
+
+if not config.nick then
+	b:warn("No 'nick' in configuration, using 'luabot'")
+	config.nick = "luabot"
+end
+
+b:hook("started", function ()
+	for room_jid, cfg in pairs(config.rooms) do
+		b:join_room(room_jid, cfg.nick or config.nick)
 	end
-end
-
-local luabot = bot.new()
-for _, name in ipairs { "muc", "invite", "urltitles", "meeting" } do
-	luabot:add_plugin(name)
-end
-
-luabot:hook("bot/message", echo_message)
-luabot:hook("groupchat/joining", function (room)
-	room:hook("message", echo_message)
-end)
-luabot:hook("started", function ()
-	luabot:join_room("tmp@conference.igalia.com", "luabot-testing")
 end)
 
-luabot:connect("user@server", "password")
+if config.host then b.stream.connect_host = config.host end
+if config.port then b.stream.connect_port = config.port end
+b:connect(config.jid, config.password)
