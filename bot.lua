@@ -13,6 +13,7 @@ require("verse.client")
 local function new_connection()
 	local c = verse.new()
 	c:add_plugin("version")
+	c:add_plugin("keepalive")
 	return c
 end
 
