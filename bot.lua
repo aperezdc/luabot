@@ -165,7 +165,7 @@ local function echo_message (event)
 	end
 end
 
-for _, name in ipairs { "muc" } do
+for _, name in ipairs { "muc", "urltitles" } do
 	bot:add_plugin(name)
 end
 
