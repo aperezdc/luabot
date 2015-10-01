@@ -6,6 +6,34 @@
 -- Distributed under terms of the MIT license.
 --
 local http_request = require("net.http").request
+local tonumber = tonumber
+local chr = string.char
+
+
+-- TODO: Generate the table of entities from the official HTML spec
+local entity_map = setmetatable({
+	amp    = "&"; gt     = ">"; lt     = "<";
+	apos   = "'"; quot   = '"'; nbsp   = " ";
+	iexcl  = "¡"; cent   = "¢"; pound  = "£";
+	curren = "¤"; yen    = "¥"; brvbar = "¦";
+	sect   = "§"; copy   = "ⓒ"; ordf   = "ª";
+	laquo  = "«"; raquo  = "»"; reg    = "ⓡ";
+	deg    = "º"; middot = "·"; iquest = "¿";
+}, { __index = function (_, s)
+		if s:sub(1, 1) == "#" then
+			if s:sub(2, 2) == "x" then
+				return chr(tonumber(s:sub(3), 16))
+			else
+				return chr(tonumber(s:sub(2)))
+			end
+		end
+	end
+})
+
+local function html_unescape(str)
+	return (str:gsub("&(.-);", entity_map))
+end
+
 
 local function handle_urltitles(message)
 	local url = message.body and message.body:match("https?://%S+")
@@ -17,7 +45,7 @@ local function handle_urltitles(message)
 
 			local title = data:match("<[tT][iI][tT][lL][eE][^>]*>([^<]+)")
 			if title then
-				title = title:gsub("\n", " ")
+				title = html_unescape(title:gsub("\n", " "))
 				if message.room then
 					message.room:send_message(title)
 				else
