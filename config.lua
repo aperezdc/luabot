@@ -8,6 +8,7 @@ port     = 5223
 
 -- Logging: warnings and errors are always displayed by default.
 debug_log = true   -- Display of debug and informational messages.
+color_log = true   -- Use ANSI escapes to color logging output.
 raw_log   = false  -- Display raw XML input/output traffic.
 
 -- Default nick name used by the bot when connecting to MUC rooms. This

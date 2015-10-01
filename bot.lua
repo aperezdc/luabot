@@ -76,9 +76,30 @@ function bot:add_plugin(name, plugin_config, global_config)
 	return self
 end
 
-function bot:set_debug(debug_log, print_raw)
+
+local log_stream = io.stderr
+local stdio_log_map = {
+	info  = "[1;1m%-5s[0;0m[0;36m %-10s[0;0m %s\n";
+	warn  = "[1;33m%-5s[0;0m[0;36m %-10s[0;0m %s\n";
+	error = "[1;32m%-5s[0;0m[0;36m %-10s[0;0m %s\n";
+	debug = "[1;35m%-5s[0;0m[0;36m %-10s[0;0m %s\n";
+}
+local function stdio_color_log(what, level, message)
+	local fmt = stdio_log_map[level]
+	log_stream:write(fmt:format(level, what, message))
+	log_stream:flush()
+end
+local log_format = "%-5s %-10s %s\n";
+local function stdio_log(what, level, message)
+	log_stream:write(log_format:format(level, what, message))
+	log_stream:flush()
+end
+
+
+function bot:set_debug(debug_log, print_raw, color_log)
+	local log_func = color_log and stdio_color_log or stdio_log
 	if debug_log then
-		verse.set_log_handler(print)
+		verse.set_log_handler(log_func)
 		if print_raw then
 			self.stream:hook("incoming-raw", function (raw)
 				print("<-- raw --")
@@ -92,7 +113,7 @@ function bot:set_debug(debug_log, print_raw)
 			end)
 		end
 	else
-		verse.set_log_handler(print, {"info", "warn", "error"})
+		verse.set_log_handler(log_func, {"info", "warn", "error"})
 	end
 end
 
@@ -213,7 +234,7 @@ end
 config.rooms, config.plugins = rooms, plugins
 
 -- Configure debugging log
-b:set_debug(config.debug_log, config.raw_log)
+b:set_debug(config.debug_log, config.raw_log, config.color_log)
 
 -- Load the MUC plug-in first, with the given configuration (if any)
 b:add_plugin("muc", config.plugins.muc or {}, config)
