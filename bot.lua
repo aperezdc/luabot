@@ -216,10 +216,10 @@ config.rooms, config.plugins = rooms, plugins
 b:set_debug(config.debug_log, config.raw_log)
 
 -- Load the MUC plug-in first, with the given configuration (if any)
-b:add_plugin("muc", config.plugins.muc or {})
+b:add_plugin("muc", config.plugins.muc or {}, config)
 config.plugins.muc = nil
 for name, cfg in pairs(config.plugins) do
-	b:add_plugin(name, cfg)
+	b:add_plugin(name, cfg, config)
 end
 
 if not config.nick then
