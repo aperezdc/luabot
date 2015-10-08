@@ -61,6 +61,16 @@ bot.new = (function ()
 	end
 end)()
 
+function bot:fatal(...)
+	self:error(...)
+	self:disconnect()
+	os.exit(1)
+end
+
+function bot:disconnect()
+	self.stream:close()
+end
+
 -- Logging
 function bot:debug(...) return self.logger("debug", ...) end
 function bot:error(...) return self.logger("error", ...) end

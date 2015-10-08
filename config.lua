@@ -19,6 +19,11 @@ nick = "luabot"
 -- plugin is always loaded and dos not need to be specified here.
 plugin "invite" {}
 plugin "urltitles" {}
+plugin "keystore" {
+	backend = "filesystem";
+	path = "./keystore";
+}
+
 
 -- Tell the bot to join a room, and specify per-room settings
 room "devel@conference.domain.com" {}
