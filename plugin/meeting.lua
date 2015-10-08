@@ -7,8 +7,18 @@
 --
 
 local tinsert, tconcat, tsort = table.insert, table.concat, table.sort
+local os_time, os_date = os.time, os.date
 local str_match = string.match
-local os_time = os.time
+
+-- TODO: Maybe allow overriding (or at least localizing) those messages.
+local msg_meeting_start = [[/me Meeting started at %s (UTC). The chair is %s.
+	* Useful commands: #action #agreed #help #info #idea #link #topic]]
+local msg_meeting_end = [[/me Meeting ended at %s (UTC).
+	* Minutes: %s
+	* Log: %s]]
+local msg_subject = [[Meeting: %s]]
+local msg_subject_topic = [[Meeting: %s · Topic: %s]]
+
 
 local strstrip_pattern = "^%s*(.-)%s*$"
 local function strstrip(s)
@@ -65,6 +75,20 @@ function meeting:get_chairs()
 	return result
 end
 
+function meeting:get_meeting_info_line()
+	if self.current_topic then
+		return msg_subject_topic:format(self.title, self.current_topic)
+	else
+		return msg_subject:format(self.title)
+	end
+end
+
+function meeting:set_topic(topic)
+	-- XXX: Does this need to put a line to the log, or is this called
+	--      automatically when a "topic" log item is added?
+	self.current_topic = topic
+end
+
 
 local function with_meeting(f)
 	return function (event, ...)
@@ -105,27 +129,53 @@ local command_handlers = {
 		if not text then
 			return event:reply("No meeting title specified")
 		end
-		event.room.bot:info("#startmeeting: " .. text)
+		local room = event.room
+		room.bot:info("#startmeeting: " .. text)
 
-		local m = event.room.bot.meeting
-		if m[event.room] then
+		local m = room.bot.meeting
+		if m[room] then
 			return event:reply("A meeting is already in progress!")
 		end
-		m[event.room] = meeting.new(event.sender.nick, text)
+
+		-- Create a new meeting
+		local meeting = meeting.new(event.sender.nick, text)
+		m[event.room] = meeting
+
+		event:reply(msg_meeting_start:format(os_date("!%c", meeting.timestamp),
+		                                     meeting:get_chairs()[1]))
+
+		-- We need to listen for chat room subject changes in order
+		-- to be able to know what the subject used to be, to restore
+		-- it at the end of the meeting.
+		local function handle_event_change(event)
+			meeting.saved_subject = event.from
+			room:unhook("subject-changed", handle_event_change)
+		end
+		room:hook("subject-changed", handle_event_change)
+		event.room:set_subject(meeting:get_meeting_info_line())
 	end;
 
 	endmeeting = chair_only(function (meeting, event, text)
-		event.room.bot.meeting[event.room] = nil
 		-- TODO: Write meeting logs
 		event.room.bot:info("#endmeeting")
+
+		-- Restore chat root topic
+		event.room:set_subject(meeting.saved_subject)
+
+		-- TODO: Format URLs in which the logs are available
+		event:reply(msg_meeting_end:format(os_date("!%c"),
+		                                   "n/a",
+		                                   "n/a"))
+		event.room.bot.meeting[event.room] = nil
 	end);
 
 	topic = chair_only(function (meeting, event, text)
 		if not text then
 			return event:reply("No topic specified")
 		end
-		-- TODO: Actually change topic and record it
 		event.room.bot:info("#topic: " .. text)
+		meeting:set_topic(text)
+		event.room:set_subject(meeting:get_meeting_info_line())
 	end);
 
 	agreed = chair_only(function (meeting, event, text)
@@ -214,6 +264,9 @@ end
 local command_pattern = "^#([%w]+)"
 local argument_pattern = "^#[%w]+%s+(.*)$"
 local function handle_message(event)
+	if not event.body then
+		return
+	end
 	local command = event.body:match(command_pattern)
 	if not command or not command_handlers[command] then
 		return
