@@ -6,10 +6,9 @@
 -- Distributed under terms of the MIT license.
 --
 
-local tinsert   = table.insert
-local tconcat   = table.concat
-local os_time   = os.time
+local tinsert, tconcat, tsort = table.insert, table.concat, table.sort
 local str_match = string.match
+local os_time = os.time
 
 local strstrip_pattern = "^%s*(.-)%s*$"
 local function strstrip(s)
@@ -201,6 +200,15 @@ end
 command_handlers.agree = command_handlers.agreed
 command_handlers.accept = command_handlers.accepted
 command_handlers.reject = command_handlers.rejected
+
+function command_handlers.commands(event, text)
+	local commands = {}
+	for name, _ in pairs(command_handlers) do
+		tinsert(commands, name)
+	end
+	tsort(commands)
+	event:reply("Available commands: " .. tconcat(commands, ", "))
+end
 
 
 local command_pattern = "^#([%w]+)"
