@@ -7,18 +7,20 @@
 --
 
 local tinsert, tconcat, tsort = table.insert, table.concat, table.sort
-local os_time, os_date = os.time, os.date
+local os_time, os_date, fopen = os.time, os.date, io.open
 local str_match = string.match
 
 -- TODO: Maybe allow overriding (or at least localizing) those messages.
-local msg_meeting_start = [[/me Meeting started at %s (UTC). The chair is %s.
-	* Useful commands: #action #agreed #help #info #idea #link #topic]]
-local msg_meeting_end = [[/me Meeting ended at %s (UTC).
-	* Minutes: %s
-	* Log: %s]]
+local msg_meeting_start = [[Meeting started at %s (UTC). The chair is %s.
+   * Useful commands: #action #agreed #help #info #idea #link #topic]]
+local msg_meeting_end = [[Meeting ended at %s (UTC).
+   * Minutes: %s
+   * Log: %s]]
 local msg_subject = [[Meeting: %s]]
 local msg_subject_topic = [[Meeting: %s · Topic: %s]]
 
+-- Table key used to store the plugin config
+local CONFIG = "!meeting!config"
 
 local strstrip_pattern = "^%s*(.-)%s*$"
 local function strstrip(s)
@@ -29,27 +31,51 @@ end
 local logitem = {}
 logitem.__index = logitem
 
-function logitem.new(nick, line, timestamp)
+function logitem.new(kind, nick, line, timestamp)
 	return setmetatable({
+		kind = kind;
 		nick = nick;
 		line = line;
 		time = time or os_time();
 	}, logitem)
 end
 
+function logitem:is_minutes()
+	return self.kind ~= "chat"
+end
+
+local text_chat_fmt = "%s <%s> %s"
+function logitem:logfile_text()
+	if self.kind == "chat" then
+		return text_chat_fmt:format(os_date("!%H:%M:%S", self.time),
+		                            self.nick, self.line)
+	end
+end
+
 
 local meeting = {}
 meeting.__index = meeting
 
-function meeting.new(chair, title, time)
-	return setmetatable({
-		chair = { [chair]=true };
+function meeting.new(room, chair, title, time)
+	local m = setmetatable({
+		nick  = chair;
 		title = title;
 		time  = time or os_time();
+		room  = room;
+		nicks = {};
+		chair = {};
 	}, meeting)
+	m:add_chair(chair)
+	return m
 end
 
 function meeting:append(item)
+	if item.kind == "topic" then
+		self.current_topic = item.text
+	end
+	if item.nick then
+		self:add_nick(item.nick)
+	end
 	tinsert(self, item)
 end
 
@@ -59,6 +85,11 @@ end
 
 function meeting:add_chair(nick)
 	self.chair[nick] = true
+	return self
+end
+
+function meeting:add_nick(nick)
+	self.nicks[nick] = true
 	return self
 end
 
@@ -83,10 +114,19 @@ function meeting:get_meeting_info_line()
 	end
 end
 
-function meeting:set_topic(topic)
-	-- XXX: Does this need to put a line to the log, or is this called
-	--      automatically when a "topic" log item is added?
-	self.current_topic = topic
+function meeting:save_logfile(logdir)
+	local timestamp = os_date("!%Y%m%dT%H%S%M", self.time)
+	local filename = self.room .. "-" .. timestamp .. ".log.txt"
+	local logfile = fopen(logdir .. "/" .. filename, "w")
+
+	for _, item in ipairs(self) do
+		local text = item:logfile_text()
+		if text then
+			logfile:write(text, "\n")
+		end
+	end
+	logfile:close()
+	return filename
 end
 
 
@@ -106,7 +146,7 @@ local function item_adder(kind)
 		text = strstrip(text or "")
 		event.room.bot:info("#" .. kind .. " " .. text)
 		if #text then
-			meeting:append(kind, event, text)
+			meeting:append(logitem.new(kind, event.sender.nick, text))
 		else
 			event:reply("No text to add as " .. kind .. " given")
 		end
@@ -138,11 +178,11 @@ local command_handlers = {
 		end
 
 		-- Create a new meeting
-		local meeting = meeting.new(event.sender.nick, text)
+		local meeting = meeting.new(event.room_jid, event.sender.nick, text)
 		m[event.room] = meeting
 
-		event:reply(msg_meeting_start:format(os_date("!%c", meeting.timestamp),
-		                                     meeting:get_chairs()[1]))
+		event:post(msg_meeting_start:format(os_date("!%c", meeting.timestamp),
+		                                    meeting:get_chairs()[1]))
 
 		-- We need to listen for chat room subject changes in order
 		-- to be able to know what the subject used to be, to restore
@@ -156,17 +196,25 @@ local command_handlers = {
 	end;
 
 	endmeeting = chair_only(function (meeting, event, text)
-		-- TODO: Write meeting logs
-		event.room.bot:info("#endmeeting")
+		local logdir = event.room.bot.meeting[CONFIG].logdir
+		local logurl = event.room.bot.meeting[CONFIG].logurl
+		local logname = meeting:save_logfile(logdir)
+		local minutesname = "n/a"
 
-		-- Restore chat root topic
+		if logurl then
+			logname = logurl .. logname
+			-- TODO: minutesname = logurl .. minutesname
+		else
+			logname = "n/a"
+			minutesname = "n/a"
+		end
+
+		event:post(msg_meeting_end:format(os_date("!%c"),
+		                                  minutesname,
+		                                  logname))
 		event.room:set_subject(meeting.saved_subject)
-
-		-- TODO: Format URLs in which the logs are available
-		event:reply(msg_meeting_end:format(os_date("!%c"),
-		                                   "n/a",
-		                                   "n/a"))
 		event.room.bot.meeting[event.room] = nil
+		event.room.bot:info("#endmeeting")
 	end);
 
 	topic = chair_only(function (meeting, event, text)
@@ -174,7 +222,7 @@ local command_handlers = {
 			return event:reply("No topic specified")
 		end
 		event.room.bot:info("#topic: " .. text)
-		meeting:set_topic(text)
+		meeting:append(logitem.new("topic", event.sender.nick, text))
 		event.room:set_subject(meeting:get_meeting_info_line())
 	end);
 
@@ -208,7 +256,7 @@ local command_handlers = {
 			-- FIXME: Validate JID/nick properly
 			m:add_chair(text)
 		end
-		event:reply("/me Current chairs: " .. tconcat(m:get_chairs(), ", "))
+		event:post("Current chairs: " .. tconcat(m:get_chairs(), ", "))
 	end);
 
 	unchair = chair_only(function (meeting, event, text)
@@ -222,7 +270,7 @@ local command_handlers = {
 			end
 			-- FIXME: Validate JID/nick properly
 			m:remove_chair(text)
-			event:reply("/me Current chairs: " .. tconcat(m:get_chairs(), ", "))
+			event:post("Current chairs: " .. tconcat(m:get_chairs(), ", "))
 		else
 			event:reply("No nick given")
 		end
@@ -264,21 +312,31 @@ end
 local command_pattern = "^#([%w]+)"
 local argument_pattern = "^#[%w]+%s+(.*)$"
 local function handle_message(event)
-	if not event.body then
-		return
-	end
-	local command = event.body:match(command_pattern)
-	if not command or not command_handlers[command] then
-		return
-	end
 	if not event.room then
 		event:reply("meeting commands are only available in chatrooms")
 	end
-	command_handlers[command](event, event.body:match(argument_pattern))
+	if not event.body then
+		return
+	end
+
+	local command = event.body:match(command_pattern)
+	if command and command_handlers[command] then
+		command_handlers[command](event, event.body:match(argument_pattern))
+	end
+
+	-- If there is a meeting in progress, add the text as a "chat" item
+	local meeting = event.room.bot.meeting[event.room]
+	if meeting then
+		meeting:append(logitem.new("chat", event.sender.nick, event.body))
+	end
 end
 
 return function (bot, plugin_config, global_config)
 	bot.meeting = {}
+	bot.meeting[CONFIG] = {
+		logdir = plugin_config.logdir or ".";
+		logurl = plugin_config.logurl or nil;
+	}
 	bot:hook("groupchat/joined", function (room)
 		room:hook("message", handle_message)
 	end)

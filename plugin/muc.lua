@@ -52,6 +52,14 @@ return function (bot)
 				end
 				room:send(r:tag("body"):text(reply))
 			end
+			function event:post(text)
+				local m = stanza.reply(s)
+				if s.attr.type == "groupchat" then
+					m.attr.type = s.attr.type
+					m.attr.to = jid.bare(s.attr.to)
+				end
+				room:send(m:tag("body"):text(text))
+			end
 		end, 500)
 		return room
 	end

@@ -23,7 +23,10 @@ plugin "keystore" {
 	backend = "filesystem";
 	path = "./keystore";
 }
-
+plugin "meeting" {
+	logdir = "./meeting-logs/";
+	logurl = "https://domain.com/meetings/";
+}
 
 -- Tell the bot to join a room, and specify per-room settings
 room "devel@conference.domain.com" {}
