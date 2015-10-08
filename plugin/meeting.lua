@@ -83,7 +83,7 @@ local function item_adder(kind)
 		text = strstrip(text or "")
 		event.room.bot:info("#" .. kind .. " " .. text)
 		if #text then
-			meeting:add_item(kind, event, text)
+			meeting:append(kind, event, text)
 		else
 			event:reply("No text to add as " .. kind .. " given")
 		end
@@ -193,7 +193,7 @@ local command_handlers = {
 }
 
 -- Item adders
-if _, kind in ipairs { "action", "info", "idea", "help", "link" } do
+for _, kind in ipairs { "action", "info", "idea", "help", "link" } do
 	command_handlers[kind] = item_adder(kind)
 end
 
