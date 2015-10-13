@@ -62,7 +62,7 @@ end
 
 
 -- TODO: Maybe allow overriding (or at least localizing) those messages.
-local render_html_minutes = template
+local render_html_minutes_header = template
 [[<DOCTYPE html>
 <html>
   <head>
@@ -79,11 +79,15 @@ local render_html_minutes = template
   <body>
     <h1>${title}</h1>
     <p class="details">Meeting started by ${owner} at ${starttime} (UTC)
-      (<a href="${filename}.log.txt">full log</a>).</p>
+      (<a href="${logname}.html">full log</a>).</p>
 
-  </body>
-</html>]]
-
+    <h3>Meeting Summary</h3>
+]]
+local render_html_minutes_item = template
+[[  <li><span class="itemtype ${kind}">${kind}</span>: ${text}
+    <span class="details">(<a href="#nick-${nick}">${nick}</a>, ${time_text})</span>
+  </li>
+]]
 local html_log_header =
 [[<DOCTYPE html>
   <head>
@@ -108,7 +112,7 @@ local render_html_log_entry = template
   <span class="ll">${text}</span>
 </p>
 ]]
-local html_log_footer =
+local html_footer =
 [[
   </body>
 </html>
@@ -119,8 +123,8 @@ local render_msg_startmeeting = template
   * Useful commands: #action #agreed #help #info #idea #link #topic]]
 local render_msg_endmeeting = template
   [[Meeting ended at %{time_text} (UTC).
-   * Minutes: %{minutes_url}
-   * Log: %{log_url}.html]]
+   * Minutes: %{logurl}/%{minutesname}.html
+   * Log: %{logurl}/%{logname}.html]]
 local render_topic_subject = template
   "Meeting: %{title} · Topic: %{current_topic}"
 local render_topic = template
@@ -214,7 +218,7 @@ local function html_log_line_class(text)
 	end
 end
 
-function meeting:save_logfile(logdir)
+function meeting:_save_logfile(logdir)
 	local timestamp = os_date("!%Y%m%dT%H%S%M", self.time)
 	local filename = self.room .. "-" .. timestamp .. ".log"
 	local textlog = fopen(logdir .. "/" .. filename .. ".txt", "w")
@@ -233,7 +237,7 @@ function meeting:save_logfile(logdir)
 		})
 		textlog:write(render_log_line(item))
 	end
-	htmllog:write(html_log_footer)
+	htmllog:write(html_footer)
 
 	htmllog:close()
 	textlog:close()
@@ -241,6 +245,77 @@ function meeting:save_logfile(logdir)
 	return filename
 end
 
+local function reorder_minutes(title, minutes)
+	local agenda = {}
+	local part = { title = title, items = {} }
+	tinsert(agenda, part)
+	for _, item in ipairs(minutes) do
+		if item.kind == "topic" then
+			part = { title = item.text, items = {} }
+			tinsert(agenda, part)
+		else
+			tinsert(part.items, item)
+		end
+	end
+	return agenda
+end
+
+function meeting:_save_minutes(logdir, logname)
+	local agenda = reorder_minutes(self.title, self.minutes)
+	local timestamp = os_date("!%Y%m%dT%H%S%M", self.time)
+	local filename = self.room .. "-" .. timestamp
+	local minutes = fopen(logdir .. "/" .. filename .. ".html", "w")
+
+	minutes:write(render_html_minutes_header {
+		starttime = self.time_text,
+		title = self.title,
+		owner = self.owner,
+		logname = logname,
+	})
+
+	minutes:write("<ol>\n")
+	for _, topic in ipairs(agenda) do
+		minutes:write("<li><strong class=\"topic\">",
+		              html_escape(topic.title),
+		              "</strong>\n")
+		if #topic.items > 0 then
+			minutes:write("  <ol type=\"a\">\n")
+			for _, item in ipairs(topic.items) do
+				minutes:write(render_html_minutes_item(item))
+			end
+			minutes:write("  </ol>\n")
+		end
+		minutes:write("</li>\n")
+	end
+	minutes:write("</ol>\n")
+
+	minutes:write("<h3>Action items</h3>\n",
+	              "<ol class=\"actions\">\n")
+	for _, item in ipairs(self.minutes) do
+		if item.kind == "action" then
+			minutes:write(render_html_minutes_item(item))
+		end
+	end
+	minutes:write("</ol>\n")
+
+	minutes:write("<h3>People present (lines said)</h3>\n",
+	              "<ol class=\"nicklist\">\n")
+	for nick, count in pairs(self.nicks) do
+		minutes:write("<li>", nick, " (", tostring(count), ")</li>\n")
+	end
+	minutes:write("</ol>\n")
+
+	minutes:write(html_footer)
+	minutes:close()
+
+	return filename
+end
+
+function meeting:save(logdir)
+	local logname = self:_save_logfile(logdir)
+	local minutesname = self:_save_minutes(logdir, logname)
+	return logname, minutesname
+end
 
 local function with_meeting(f)
 	return function (event, ...)
@@ -313,22 +388,15 @@ local command_handlers = {
 
 		local logdir = event.room.bot.meeting[CONFIG].logdir
 		local logurl = event.room.bot.meeting[CONFIG].logurl
-		local logname = meeting:save_logfile(logdir)
-		local minutesname = "n/a"
-
-		if logurl then
-			logname = logurl .. logname
-			-- TODO: minutesname = logurl .. minutesname
-		else
-			logname = "n/a"
-			minutesname = "n/a"
-		end
+		local logname, minutesname = meeting:save(logdir)
 
 		event:post(render_msg_endmeeting {
 			time_text = os_date("!%c"),
-			minutes_url = minutesname,
-			log_url = logname,
+			minutesname = minutesname,
+			logname = logname,
+			logurl = logurl,
 		})
+
 		event.room:set_subject(meeting.saved_subject)
 		event.room.bot.meeting[event.room] = nil
 		event.room.bot:info("#endmeeting")
