@@ -6,6 +6,7 @@
 -- Distributed under terms of the MIT license.
 --
 
+local setmetatable, pairs, ipairs, tostring = setmetatable, pairs, ipairs, tostring
 local tinsert, tconcat, tsort, tremove = table.insert, table.concat, table.sort, table.remove
 local os_time, os_date, fopen = os.time, os.date, io.open
 local str_match = string.match
@@ -33,7 +34,36 @@ local function html_escape(text)
 end
 
 
-local html_template = [[<DOCTYPE html>
+--
+-- Based on Rici Lake's simple string interpolation
+-- See: http://lua-users.org/wiki/StringInterpolation
+--
+local function interpolate(text, vars)
+	return (text:gsub('([$%%]%b{})', function (w)
+		local value = vars[w:sub(3, -2)]
+		if value ~= nil then
+			value = tostring(value)
+			if w:sub(1, 1) == "$" then
+				return html_escape(value)
+			else
+				return value
+			end
+		else
+			return w
+		end
+	end))
+end
+
+local function template(text)
+	return function (vars)
+		return interpolate(text, vars)
+	end
+end
+
+
+-- TODO: Maybe allow overriding (or at least localizing) those messages.
+local render_html_minutes = template
+[[<DOCTYPE html>
 <html>
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
@@ -54,41 +84,43 @@ local html_template = [[<DOCTYPE html>
   </body>
 </html>]]
 
+local html_log_header =
+[[<DOCTYPE html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <style type="text/css">
+      body { font-family: 'Source Code Pro', monospace }
+      p { margin: 0 1em 0 1em }
+      span.tm { color: #007020 }
+      span.nk { color: #062873; font-weight: bold }
+      p.command span.ll { color: #007020 }
+      p.topic span.ll { color: #007020; font-weight: bold }
+    </style>
+  </head>
+  <body>
+]]
+local render_html_log_entry = template
+[[
+<p class="${kind}">
+  <a name="l-${line}"></a>
+  <span class="tm">${time}</span>
+  &lt;<span class="nk">${nick}</span>&gt;
+  <span class="ll">${text}</span>
+</p>
+]]
+local html_log_footer =
+[[
+  </body>
+</html>
+]]
 
---
--- Based on Rici Lake's simple string interpolation
--- See: http://lua-users.org/wiki/StringInterpolation
---
-local function interpolate(text, vars)
-	return (text:gsub('([$%%]%b{})', function (w)
-		local value = vars[w:sub(3, -2)]
-		if value ~= nil then
-			if w:sub(1, 1) == "$" then
-				return html_escape(value)
-			else
-				return value
-			end
-		else
-			return w
-		end
-	end))
-end
-
-local function template(text)
-	return function (vars)
-		return interpolate(text, vars)
-	end
-end
-
-
--- TODO: Maybe allow overriding (or at least localizing) those messages.
 local render_msg_startmeeting = template
   [[Meeting started at %{time_text} (UTC). The chair is %{owner}.
   * Useful commands: #action #agreed #help #info #idea #link #topic]]
 local render_msg_endmeeting = template
   [[Meeting ended at %{time_text} (UTC).
    * Minutes: %{minutes_url}
-   * Log: %{log_url}]]
+   * Log: %{log_url}.html]]
 local render_topic_subject = template
   "Meeting: %{title} · Topic: %{current_topic}"
 local render_topic = template
@@ -173,15 +205,39 @@ function meeting:get_meeting_info_line()
 	end
 end
 
+local function html_log_line_class(text)
+	local match = text:match("^#(%w+)")
+	if match then
+		return match == "topic" and match or "command"
+	else
+		return "chat"
+	end
+end
+
 function meeting:save_logfile(logdir)
 	local timestamp = os_date("!%Y%m%dT%H%S%M", self.time)
-	local filename = self.room .. "-" .. timestamp .. ".log.txt"
-	local logfile = fopen(logdir .. "/" .. filename, "w")
+	local filename = self.room .. "-" .. timestamp .. ".log"
+	local textlog = fopen(logdir .. "/" .. filename .. ".txt", "w")
+	local htmllog = fopen(logdir .. "/" .. filename .. ".html", "w")
 
+	htmllog:write(html_log_header)
+	local line_number = 0
 	for _, item in ipairs(self.log) do
-		logfile:write(render_log_line(item))
+		line_number = line_number + 1
+		htmllog:write(render_html_log_entry {
+			kind = html_log_line_class(item.text),
+			line = line_number,
+			time = item.time_text,
+			nick = item.nick,
+			text = item.text,
+		})
+		textlog:write(render_log_line(item))
 	end
-	logfile:close()
+	htmllog:write(html_log_footer)
+
+	htmllog:close()
+	textlog:close()
+
 	return filename
 end
 
