@@ -462,9 +462,6 @@ local command_handlers = {
 	unchair = chair_only(function (meeting, event, text)
 		text = strstrip(text or "")
 		if #text > 0 then
-			if not m:is_chair(event.sender.nick) then
-				return event:reply("Only chairs can remove other chairs")
-			end
 			if event.sender.nick == text then
 				return event:reply("You cannot unchair yourself")
 			end
