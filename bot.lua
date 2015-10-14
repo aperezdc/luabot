@@ -27,6 +27,7 @@ bot.new = (function ()
 			logger = verse.new_logger("bot" .. tostring(bot_id));
 			stream = stream;
 			plugin = {};
+			config = {};  -- Replaced by :configure()
 		}, bot)
 
 		self:hook("started", function ()
@@ -197,76 +198,109 @@ function bot:start()
 end
 
 function bot:connect(jid, password)
-	self.stream:connect_client(jid, password)
+	self.stream:connect_client(jid or self.config.jid,
+	                           password or self.config.password)
 	verse.loop()
 	return self
 end
 
-
-local b = bot.new()
-
-local rooms = {}
-local plugins = {}
-local config = setmetatable({}, { __index = {
-	room = function (name)
-		return function (cfg)
-			if type(cfg) ~= "table" then
-				error("options for room '" .. name .. "' must be a table")
-			end
-			rooms[name] = cfg
-		end
-	end;
-	plugin = function (name)
-		return function (cfg)
-			if type(cfg) ~= "table" then
-				error("options for plugin '" .. name .. "' must be a table")
-			end
-			plugins[name] = cfg
-		end
-	end;
-}})
-local config_chunk, err = loadfile("config.lua", "t", config)
-if not config_chunk then
-	b:error("Cannot load 'config.lua': " .. tostring(err))
-	return 1
-end
-local ok, err = pcall(config_chunk)
-if not ok then
-	b:error("Cannot process 'config.lua': " .. tostring(err))
-	return 1
-end
-
-if not config.jid then
-	b:error("No 'jid' in configuration")
-	return 1
-end
-if not config.password then
-	b:error("No 'password' in configuration")
-	return 1
-end
-config.rooms, config.plugins = rooms, plugins
-
--- Configure debugging log
-b:set_debug(config.debug_log, config.raw_log, config.color_log)
-
--- Load the MUC plug-in first, with the given configuration (if any)
-b:add_plugin("muc", config.plugins.muc or {}, config)
-config.plugins.muc = nil
-for name, cfg in pairs(config.plugins) do
-	b:add_plugin(name, cfg, config)
-end
-
-if not config.nick then
-	b:warn("No 'nick' in configuration, using 'luabot'")
-	config.nick = "luabot"
-end
-
-b:hook("started", function ()
-	for room_jid, cfg in pairs(config.rooms) do
-		b:join_room(room_jid, cfg.nick or config.nick)
+function bot:_reconfigure()
+	--
+	-- XXX: Technically those shouldn't be changed while the stream is open,
+	--      but anyway after :connect() is called those are not used anymore.
+	--      Anyway, it is good to do this here to allow multiple :configure()
+	--      calls before :connect()
+	--
+	if self.config.host then
+		self.stream.connect_host = self.config.host
+	else
+		self.stream.connect_host = nil
 	end
-end)
+	if self.config.port then
+		self.stream.connect_port = self.config.port
+	else
+		self.stream.connect_port = nil
+	end
 
-if config.host then b.stream.connect_host = config.host end
-if config.port then b.stream.connect_port = config.port end
-b:connect(config.jid, config.password)
+	-- Configure debugging log
+	self:set_debug(self.config.debug_log,
+	               self.config.raw_log,
+	               self.config.color_log)
+
+	--
+	-- We can safely call :add_plugin() each time that reconfiguration is
+	-- requested; only the first call for a plugin will cause it being loaded.
+	--
+	for name, _ in pairs(self.config.plugin) do
+		self:add_plugin(name)
+	end
+end
+
+function bot:configure(config)
+	-- TODO: Instead of replacing, merge configuration items.
+	self.config = config
+	-- TODO: Fire event(s) informing that the bot has been reconfigured.
+	self:_reconfigure()
+	return self
+end
+
+function bot:load_config(path)
+	local rooms = {}
+	local plugin = {}
+	local config = setmetatable({}, { __index = {
+		room = function (name)
+			return function (cfg)
+				if type(cfg) ~= "table" then
+					error("options for room '" .. name .. "' must be a table")
+				end
+				rooms[name] = cfg
+			end
+		end;
+		plugin = function (name)
+			return function (cfg)
+				if type(cfg) ~= "table" then
+					error("options for plugin '" .. name .. "' must be a table")
+				end
+				plugin[name] = cfg
+			end
+		end;
+	}})
+	local config_chunk, err = loadfile(path, "t", config)
+	if not config_chunk then
+		self:fatal("Cannot load 'config.lua': " .. tostring(err))
+	end
+	local ok, err = pcall(config_chunk)
+	if not ok then
+		self:fatal("Cannot process 'config.lua': " .. tostring(err))
+	end
+
+	if not config.jid then
+		self:fatal("No 'jid' in configuration")
+	end
+	if not config.password then
+		self:fatal("No 'password' in configuration")
+	end
+	if not config.nick then
+		self:warn("No 'nick' in configuration, using 'luabot'")
+		config.nick = "luabot"
+	end
+	config.plugin = plugin
+
+	-- If any "room" statement was seen, ensure that the MUC plugin is loaded
+	for room_jid, room_config in pairs(rooms) do
+		if not config.plugin.muc then
+			config.plugin.muc = {}
+		end
+		if config.plugin.muc[room_jid] then
+			self:warn("MUC room '" .. room_jid .. "' configured more than once")
+		else
+			config.plugin.muc[room_jid] = room_config
+		end
+	end
+
+	return self:configure(config)
+end
+
+
+-- Run, Forrest, run!
+local b = bot.new():load_config("config.lua"):connect()

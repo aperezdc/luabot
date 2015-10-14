@@ -70,4 +70,10 @@ return function (bot)
 			muc_x:tag("history", { maxstanzas = 0 })
 		end
 	end)
+
+	bot:hook("started", function ()
+		for room_jid, room_config in pairs(bot.config.plugin.muc) do
+			bot:join_room(room_jid, room_config.nick or bot.config.nick)
+		end
+	end)
 end

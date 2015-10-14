@@ -67,11 +67,12 @@ function fsdir:set(key, value)
 end
 
 
-function fsdir.new(bot, plugin_config, global_config)
-	if type(plugin_config.path) ~= "string" then
+function fsdir.new(bot)
+	if type(bot.config.plugin.keystore.path) ~= "string" then
 		bot:fatal("keystore: fsdir: no 'path' specified, or it is not a string")
 	end
-	return setmetatable({ cache = {}, path = plugin_config.path, }, fsdir)
+	local obj = { cache = {}, path = bot.config.plugin.keystore.path }
+	return setmetatable(obj, fsdir)
 end
 
 
@@ -87,7 +88,7 @@ function inmem:get(key)
 	return self.data[key]
 end
 
-function inmem.new(bot, plugin_config, global_config)
+function inmem.new(bot)
 	return setmetatable({ data = {} }, inmem)
 end
 
@@ -97,14 +98,14 @@ local factories = {
 	memory     = inmem.new;
 }
 
-return function (bot, plugin_config, global_config)
+return function (bot)
 	local backend = factories.memory
-	if not plugin_config.backend then
+	if not bot.config.plugin.keystore.backend then
 		bot:warn("keystore: no backend specified")
 	else
-		backend = factories[plugin_config.backend]
+		backend = factories[bot.config.plugin.keystore.backend]
 		if not backend then
-			bot:warn("keystore: '" .. plugin_config.backend ..
+			bot:warn("keystore: '" .. bot.config.plugin.keystore.backend ..
 				     "' is not a valid backend")
 		end
 	end
@@ -115,5 +116,5 @@ return function (bot, plugin_config, global_config)
 
 	assert(type(backend) == "function",
 	       "no backend factory, this shouldn't happen!")
-	return backend(bot, plugin_config, global_config)
+	return backend(bot)
 end

@@ -10,23 +10,27 @@ local xmlns_muc = "http://jabber.org/protocol/muc"
 local xmlns_muc_user = xmlns_muc .. "#user"
 local xmlns_jxc = "jabber:x:conference"
 
-return function (bot, invite_cfg, bot_cfg)
-	local default_nick = invite_cfg.nick or bot_cfg.nick
 
-	bot:hook("message", function (event)
-		local x = event.stanza:get_child("x", xmlns_muc_user)
+local function handle_message(event)
+	local x = event.stanza:get_child("x", xmlns_muc_user)
 
-		-- Try both XEP-45 and XEP-249
-		if x then
-			local invite = x:get_child("invite")
-			if invite then
-				bot:join_room(event.stanza.attr.from, default_nick)
-			end
-		else
-			x = event.stanza:get_child("x", xmlns_jxc)
-			if x and x.attr.jid then
-				bot:join_room(x.attr.jid, default_nick)
-			end
+	-- Try both XEP-45 and XEP-249
+	if x then
+		local invite = x:get_child("invite")
+		if invite then
+			local nick = bot.config.plugin.invite.nick or bot.config.nick
+			event.bot:join_room(event.stanza.attr.from, nick)
 		end
-	end)
+	else
+		x = event.stanza:get_child("x", xmlns_jxc)
+		if x and x.attr.jid then
+			local nick = bot.config.plugin.invite.nick or bot.config.nick
+			event.bot:join_room(x.attr.jid, nick)
+		end
+	end
+end
+
+
+return function (bot)
+	bot:hook("message", handle_message)
 end

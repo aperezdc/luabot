@@ -550,14 +550,15 @@ local function handle_message(event)
 	end
 end
 
-return function (bot, plugin_config, global_config)
+return function (bot)
 	bot:hook("groupchat/joined", function (room)
 		room:hook("message", handle_message)
 	end)
+	local logdir = bot.config.plugin.meeting.logdir or "."
 	return {
 		[CONFIG] = {
-			logdir = plugin_config.logdir or ".";
-			logurl = plugin_config.logurl or ("file://" .. logdir)
+			logdir = logdir,
+			logurl = bot.config.plugin.meeting.logurl or ("file://" .. logdir),
 		}
 	}
 end
