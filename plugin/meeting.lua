@@ -144,6 +144,7 @@ function meeting.new(room, chair, title, time)
 		title   = title;
 		time    = time or os_time();
 		room    = room;
+		lurk    = false;
 		nicks   = {};
 		chair   = {};
 		log     = {};
@@ -390,12 +391,14 @@ local command_handlers = {
 		local logurl = event.room.bot.meeting[CONFIG].logurl
 		local logname, minutesname = meeting:save(logdir)
 
-		event:post(render_msg_endmeeting {
-			time_text = os_date("!%c"),
-			minutesname = minutesname,
-			logname = logname,
-			logurl = logurl,
-		})
+		if not meeting.lurk then
+			event:post(render_msg_endmeeting {
+				time_text = os_date("!%c"),
+				minutesname = minutesname,
+				logname = logname,
+				logurl = logurl,
+			})
+		end
 
 		event.room:set_subject(meeting.saved_subject)
 		event.room.bot.meeting[event.room] = nil
@@ -407,7 +410,9 @@ local command_handlers = {
 		event.room.bot:info("#topic: " .. text)
 		if #text > 0 then
 			meeting:append("topic", text, event.sender.nick)
-			event.room:set_subject(meeting:get_meeting_info_line())
+			if not meeting.lurk then
+				event.room:set_subject(meeting:get_meeting_info_line())
+			end
 		else
 			event:reply("No topic specified")
 		end
@@ -449,7 +454,9 @@ local command_handlers = {
 			-- FIXME: Validate JID/nick properly
 			meeting:add_chair(text)
 		end
-		event:post("Current chairs: " .. tconcat(m:get_chairs(), ", "))
+		if not meeting.lurk then
+			event:post("Current chairs: " .. tconcat(meeting:get_chairs(), ", "))
+		end
 	end);
 
 	unchair = chair_only(function (meeting, event, text)
@@ -463,7 +470,9 @@ local command_handlers = {
 			end
 			-- FIXME: Validate JID/nick properly
 			meeting:remove_chair(text)
-			event:post("Current chairs: " .. tconcat(meeting:get_chairs(), ", "))
+			if not event.lurk then
+				event:post("Current chairs: " .. tconcat(meeting:get_chairs(), ", "))
+			end
 		else
 			event:reply("No nick given")
 		end
@@ -487,7 +496,19 @@ local command_handlers = {
 		meeting:add_nick(event.sender.nick, 0)
 	end);
 
-	-- TODO: Do we want lurk/unlurk/meetingname/restriclogs/meetingtopic?
+	lurk = chair_only(function (meeting, event, text)
+		event.room.bot:info("#lurk")
+		meeting:append("log", "#lurk", event.sender.nick)
+		meeting.lurk = true
+	end);
+
+	unlurk = chair_only(function (meeting, event, text)
+		event.room.bot:info("#unlurk")
+		meeting:append("log", "#unlurk", event.sender.nick)
+		meeting.lurk = false
+	end);
+
+	-- XXX: Do we want meetingname/restriclogs/meetingtopic?
 }
 
 -- Item adders
