@@ -320,7 +320,7 @@ end
 
 local function with_meeting(f)
 	return function (event, ...)
-		local meeting = event.room.bot.meeting[event.room]
+		local meeting = event.room.bot.plugin.meeting[event.room]
 		if meeting then
 			f(meeting, event, ...)
 		else
@@ -358,11 +358,10 @@ local command_handlers = {
 		if #text == 0 then
 			return event:reply("No meeting title specified")
 		end
-		local room = event.room
-		room.bot:info("#startmeeting: " .. text)
+		event.room.bot:info("#startmeeting: " .. text)
 
-		local m = room.bot.meeting
-		if m[room] then
+		local m = event.room.bot.plugin.meeting
+		if m[event.room] then
 			return event:reply("A meeting is already in progress!")
 		end
 
@@ -376,19 +375,20 @@ local command_handlers = {
 		-- We need to listen for chat room subject changes in order
 		-- to be able to know what the subject used to be, to restore
 		-- it at the end of the meeting.
+		local room = event.room
 		local function handle_event_change(event)
 			meeting.saved_subject = event.from
 			room:unhook("subject-changed", handle_event_change)
 		end
 		room:hook("subject-changed", handle_event_change)
-		event.room:set_subject(meeting:get_meeting_info_line())
+		room:set_subject(meeting:get_meeting_info_line())
 	end;
 
 	endmeeting = chair_only(function (meeting, event, text)
 		meeting:append("log", "#endmeeting", event.sender.nick)
 
-		local logdir = event.room.bot.meeting[CONFIG].logdir
-		local logurl = event.room.bot.meeting[CONFIG].logurl
+		local logdir = event.room.bot.plugin.meeting[CONFIG].logdir
+		local logurl = event.room.bot.plugin.meeting[CONFIG].logurl
 		local logname, minutesname = meeting:save(logdir)
 
 		if not meeting.lurk then
@@ -400,8 +400,8 @@ local command_handlers = {
 			})
 		end
 
+		event.room.bot.plugin.meeting[event.room] = nil
 		event.room:set_subject(meeting.saved_subject)
-		event.room.bot.meeting[event.room] = nil
 		event.room.bot:info("#endmeeting")
 	end);
 
@@ -543,7 +543,7 @@ local function handle_message(event)
 		command_handlers[command](event, event.body:match(argument_pattern))
 	else
 		-- If there is a meeting in progress, add the text as a "chat" item
-		local meeting = event.room.bot.meeting[event.room]
+		local meeting = event.room.bot.plugin.meeting[event.room]
 		if meeting then
 			meeting:append("log", event.body, event.sender.nick)
 		end
@@ -551,13 +551,14 @@ local function handle_message(event)
 end
 
 return function (bot, plugin_config, global_config)
-	bot.meeting = {}
-	bot.meeting[CONFIG] = {
-		logdir = plugin_config.logdir or ".";
-		logurl = plugin_config.logurl or nil;
-	}
 	bot:hook("groupchat/joined", function (room)
 		room:hook("message", handle_message)
 	end)
+	return {
+		[CONFIG] = {
+			logdir = plugin_config.logdir or ".";
+			logurl = plugin_config.logurl or ("file://" .. logdir)
+		}
+	}
 end
 

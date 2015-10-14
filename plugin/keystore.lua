@@ -115,6 +115,5 @@ return function (bot, plugin_config, global_config)
 
 	assert(type(backend) == "function",
 	       "no backend factory, this shouldn't happen!")
-	local get, set = backend(bot, plugin_config, global_config)
-	bot.keystore = setmetatable({}, { __index = get, __newindex = set })
+	return backend(bot, plugin_config, global_config)
 end
