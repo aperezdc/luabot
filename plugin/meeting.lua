@@ -447,7 +447,7 @@ local command_handlers = {
 		text = strstrip(text or "")
 		if #text > 0 then
 			-- FIXME: Validate JID/nick properly
-			m:add_chair(text)
+			meeting:add_chair(text)
 		end
 		event:post("Current chairs: " .. tconcat(m:get_chairs(), ", "))
 	end);
@@ -462,8 +462,8 @@ local command_handlers = {
 				return event:reply("You cannot unchair yourself")
 			end
 			-- FIXME: Validate JID/nick properly
-			m:remove_chair(text)
-			event:post("Current chairs: " .. tconcat(m:get_chairs(), ", "))
+			meeting:remove_chair(text)
+			event:post("Current chairs: " .. tconcat(meeting:get_chairs(), ", "))
 		else
 			event:reply("No nick given")
 		end
