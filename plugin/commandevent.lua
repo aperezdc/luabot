@@ -45,7 +45,11 @@ return function (bot)
 				ret = bot:event("unhandled-command", command_event)
 			end
 			if type(ret) == "string" then
-				event:reply(ret)
+				if ret:sub(1, 5) == "/say " then
+					event:post(ret:sub(6, -1))
+				else
+					event:reply(ret)
+				end
 			end
 			return ret
 		end
