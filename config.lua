@@ -18,7 +18,14 @@ nick = "luabot"
 -- Load plugins, and specify their configurations. Note that the "muc"
 -- plugin is always loaded and dos not need to be specified here.
 plugin "invite" {}
-plugin "urltitles" {}
+plugin "urltitles" {
+	-- A lists of Lua patterns can be given to filter which URLs are
+	-- expanded and which ones are not. This is mostly used in a
+	-- per-room basis (see below):
+	--
+	-- include = {};
+	-- exclude = {};
+}
 plugin "keystore" {
 	backend = "filesystem";
 	path = "./keystore";
@@ -29,7 +36,15 @@ plugin "meeting" {
 }
 
 -- Tell the bot to join a room, and specify per-room settings
-room "devel@conference.domain.com" {}
+room "devel@conference.domain.com" {
+	-- Configure "urltitles" plugin in a per-room basis
+	urltitles = {
+		include = {
+			"^https?://bugs%.myproject%.org/",
+			"^https?://bugs%.myotherproject%.org/",
+		};
+	};
+}
 room "coffee@conference.domain.com" {
 	nick = "beans";
 }

@@ -6,7 +6,6 @@
 -- Distributed under terms of the MIT license.
 --
 local http_request = require("net.http").request
-local tonumber = tonumber
 local chr = string.char
 
 
@@ -35,9 +34,47 @@ local function html_unescape(str)
 end
 
 
-local function handle_urltitles(message)
-	local url = message.body and message.body:match("https?://%S+")
+local function should_expand(url, include, exclude)
+	if include then
+		for _, pattern in ipairs(include) do
+			if url:match(pattern) then
+				return true
+			end
+		end
+		if not exclude then
+			return false
+		end
+	end
+	if exclude then
+		for _, pattern in ipairs(exclude) do
+			if url:match(pattern) then
+				return false
+			end
+		end
+	end
+	return true
+end
+
+
+local function handle_urltitles(bot, event)
+	local url = event.body and event.body:match("https?://%S+")
 	if url then
+		local include_patterns, exclude_patterns = nil, nil
+		if event.room_jid then
+			local room_config = bot.config.plugin.muc[event.room_jid]
+			if room_config and room_config.urltitles then
+				include_patterns = room_config.urltitles.include
+				exclude_patterns = room_config.urltitles.exclude
+			end
+		else
+			include_patterns = bot.config.plugin.urltitles.include
+			exclude_patterns = bot.config.plugin.urltitles.exclude
+		end
+
+		if not should_expand(url, include_patterns, exclude_patterns) then
+			return
+		end
+
 		http_request(url, nil, function (data, code)
 			if code ~= 200 then
 				return
@@ -45,20 +82,16 @@ local function handle_urltitles(message)
 
 			local title = data:match("<[tT][iI][tT][lL][eE][^>]*>([^<]+)")
 			if title then
-				title = html_unescape(title:gsub("\n", " "))
-				if message.room then
-					message.room:send_message(title)
-				else
-					message:reply(title)
-				end
+				event:post(html_unescape(title:gsub("\n", " ")))
 			end
 		end)
 	end
 end
 
 return function (bot)
-	bot:hook("message", handle_urltitles)
+	local function handle_message(event) handle_urltitles(bot, event) end
+	bot:hook("message", handle_message)
 	bot:hook("groupchat/joined", function (room)
-		room:hook("message", handle_urltitles)
+		room:hook("message", handle_message)
 	end)
 end
