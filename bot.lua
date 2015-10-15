@@ -267,11 +267,11 @@ function bot:load_config(path)
 	}})
 	local config_chunk, err = loadfile(path, "t", config)
 	if not config_chunk then
-		self:fatal("Cannot load 'config.lua': " .. tostring(err))
+		self:fatal("Cannot load config: " .. tostring(err))
 	end
 	local ok, err = pcall(config_chunk)
 	if not ok then
-		self:fatal("Cannot process 'config.lua': " .. tostring(err))
+		self:fatal("Cannot process '" .. path .. "': " .. tostring(err))
 	end
 
 	if not config.jid then
@@ -303,4 +303,6 @@ end
 
 
 -- Run, Forrest, run!
-local b = bot.new():load_config("config.lua"):connect()
+local config_file = "config.lua"
+if #arg > 0 then config_file = arg[1] end
+local b = bot.new():load_config(config_file):connect()
