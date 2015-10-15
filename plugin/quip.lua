@@ -12,7 +12,7 @@ local QUIP_INDEX_KEY = QUIP_KEY_PREFIX .. "index"
 
 local function quip_bucket(index)
 	index = index - 1
-	local b = (index // QUIP_BUCKET_SIZE) * QUIP_BUCKET_SIZE
+	local b = math.floor(index / QUIP_BUCKET_SIZE) * QUIP_BUCKET_SIZE
 	local i = (index % QUIP_BUCKET_SIZE) + 1
 	return QUIP_KEY_PREFIX .. (b + 1) .. "-" .. (b + QUIP_BUCKET_SIZE), i
 end
