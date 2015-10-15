@@ -7,7 +7,7 @@
 --
 
 local command_pattern = "^([%a%-%_%d]+)(%s?)(.*)$"
-local room_command_pattern = "^([%a%-%_%d]+)[:;,]%s*([%a%-%_%d]+)(%s?)(.*)$"
+local room_command_pattern = "^([%a%-%_%d]+)[:;,%s]%s*([%a%-%_%d]+)(%s?)(.*)$"
 
 return function (bot)
 	local function handle_message(event)
