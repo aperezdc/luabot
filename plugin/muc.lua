@@ -34,23 +34,24 @@ return function (bot)
 		room:hook("message", function (event)
 			local s = event.stanza
 			local replied = false
-			local r = stanza.reply(s)
-			if s.attr.type == "groupchat" then
-				r.attr.type = s.attr.type
-				r.attr.to = jid.bare(s.attr.to)
-			end
-
 			if event.nick == room.nick then
 				return true
 			end
-			function event:reply(reply)
-				if not reply then reply = "Nothing to say" end
+			function event:reply(...)
 				if replied then return false end
 				replied = true
-				if reply:sub(1, 4) ~= "/me " and event.sender and r.attr.type == "groupchat" then
-					reply = (event.reply_to or event.sender.nick) .. ": " .. reply
+				for i = 1, select("#", ...) do
+					local r = stanza.reply(s)
+					if s.attr.type == "groupchat" then
+						r.attr.type = s.attr.type
+						r.attr.to = jid.bare(s.attr.to)
+					end
+					local message = select(i, ...)
+					if message:sub(1, 4) ~= "/me " and event.sender and r.attr.type == "groupchat" then
+						message = (event.reply_to or event.sender.nick) .. ": " .. message
+					end
+					room:send(r:tag("body"):text(message))
 				end
-				room:send(r:tag("body"):text(reply))
 			end
 			function event:post(text)
 				local m = stanza.reply(s)

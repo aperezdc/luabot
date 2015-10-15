@@ -171,12 +171,14 @@ function bot:start()
 		if s.name == "message" then
 			local replied = false
 			local bot = self
-			function event:reply(reply)
+			function event:reply(...)
 				if replied then
 					return false
 				end
 				replied = true
-				return bot:send_message(s.attr.from, s.attr.type, reply)
+				for i = 1, select("#", ...) do
+					bot:send_message(s.attr.from, s.attr.type, (select(i, ...)))
+				end
 			end
 		end
 
