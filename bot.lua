@@ -181,6 +181,7 @@ function bot:start()
 					bot:send_message(s.attr.from, s.attr.type, (select(i, ...)))
 				end
 			end
+			event.post = event.reply
 		end
 
 		local ret = nil
