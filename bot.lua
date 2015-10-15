@@ -6,6 +6,11 @@
 -- Distributed under terms of the MIT license.
 --
 
+-- Lua 5.2 needs this to be able to load Verse
+if _VERSION:match("^Lua 5%.2") then
+	package.path = package.path .. ";./?/init.lua"
+end
+
 local stanza = require("util.stanza")
 local verse = require("verse").init("client")
 
