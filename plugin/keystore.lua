@@ -43,6 +43,7 @@ local fsdir = {}
 fsdir.__index = fsdir
 
 function fsdir:get(key)
+	-- FIXME: Key may contain characters unsupported by the filesystem!
 	local chunk, err = loadfile(self.path .. "/" .. key, "t", {})
 	if not chunk then
 		return nil
@@ -57,7 +58,8 @@ function fsdir:get(key)
 end
 
 function fsdir:set(key, value)
-	local f = io.open(path, "w")
+	-- FIXME: Key may contain characters unsupported by the filesystem!
+	local f = io.open(self.path .. "/" .. key, "w")
 	f:write("local ")
 	serialize(f, "_", value)
 	f:write("return _\n")
