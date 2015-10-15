@@ -18,6 +18,7 @@ local entity_map = setmetatable({
 	sect   = "§"; copy   = "ⓒ"; ordf   = "ª";
 	laquo  = "«"; raquo  = "»"; reg    = "ⓡ";
 	deg    = "º"; middot = "·"; iquest = "¿";
+	ndash  = "–"; mdash  = "—"; bull   = "·";
 }, { __index = function (_, s)
 		if s:sub(1, 1) == "#" then
 			if s:sub(2, 2) == "x" then
