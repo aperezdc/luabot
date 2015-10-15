@@ -336,7 +336,8 @@ local function item_adder(kind)
 		if #text then
 			meeting:append(kind, text, event.sender.nick)
 		else
-			event:reply("No text to add as " .. kind .. " given")
+			event:reply("No text to add as " .. kind .. " given; " ..
+			            "if you wanted help, use #commands instead")
 		end
 	end)
 end
@@ -524,7 +525,10 @@ function command_handlers.commands(event, text)
 		tinsert(commands, name)
 	end
 	tsort(commands)
-	event:reply("Available commands: " .. tconcat(commands, ", "))
+	event:reply("Available commands: " .. tconcat(commands, ", "),
+	            "Please check http://meetbot.debian.net/Manual.html — " ..
+                "I am not a MeetBot, but I can mimic most of its movements" ..
+                " like a stealth ninja.")
 end
 
 
