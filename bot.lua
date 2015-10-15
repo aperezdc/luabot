@@ -9,6 +9,7 @@
 -- Lua 5.2 needs this to be able to load Verse
 if _VERSION:match("^Lua 5%.2") then
 	package.path = package.path .. ";./?/init.lua"
+	require("verse.client")
 end
 
 local stanza = require("util.stanza")
