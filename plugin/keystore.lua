@@ -6,6 +6,8 @@
 -- Distributed under terms of the MIT license.
 --
 
+local to_base32 = require("util.basexx").to_base32
+
 -- Recipe from:
 --   http://www.lua.org/pil/12.1.2.html
 --
@@ -44,7 +46,7 @@ fsdir.__index = fsdir
 
 function fsdir:get(key)
 	-- FIXME: Key may contain characters unsupported by the filesystem!
-	local chunk, err = loadfile(self.path .. "/" .. key, "t", {})
+	local chunk, err = loadfile(self.path .. "/" .. to_base32(key), "t", {})
 	if not chunk then
 		return nil
 	end
@@ -59,7 +61,7 @@ end
 
 function fsdir:set(key, value)
 	-- FIXME: Key may contain characters unsupported by the filesystem!
-	local f = io.open(self.path .. "/" .. key, "w")
+	local f = io.open(self.path .. "/" .. to_base32(key), "w")
 	f:write("local ")
 	serialize(f, "_", value)
 	f:write("return _\n")
