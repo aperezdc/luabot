@@ -78,6 +78,7 @@ local function handle_urltitles(bot, event)
 
 		http_request(url, nil, function (data, code)
 			if code ~= 200 then
+				bot:warn("urltitles: HTTP code=" .. code .. " for " .. url)
 				return
 			end
 
