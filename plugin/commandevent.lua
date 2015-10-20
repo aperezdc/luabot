@@ -9,6 +9,26 @@
 local command_pattern = "^([%a%-%_%d]+)(%s?)(.*)$"
 local room_command_pattern = "^([%a%-%_%d]+)[:;,%s]%s*([%a%-%_%d]+)(%s?)(.*)$"
 
+local function make_dispatch(subcommands)
+	return function (command)
+		local subcommand, hasparam, param = nil, nil, nil
+		if command.param then
+			subcommand, hasparam, param = command.param:match(command_pattern)
+			if hasparam ~= " " then
+				param = nil
+			end
+		end
+		if subcommand and subcommands[subcommand] then
+			command.subcommand = subcommand
+			command.param = param
+			return subcommands[subcommand](command)
+		elseif subcommands._ then
+			return subcommands._(command)
+		end
+	end
+end
+
+
 return function (bot)
 	local function handle_message(event)
 		local body = event.body
@@ -59,4 +79,8 @@ return function (bot)
 	bot:hook("groupchat/joining", function (room)
 		room:hook("message", handle_message)
 	end)
+
+	return {
+		dispatch = make_dispatch;
+	}
 end
