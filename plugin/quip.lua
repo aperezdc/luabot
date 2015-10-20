@@ -18,6 +18,36 @@ local function quip_bucket(index)
 end
 
 
+local function qdb_add_hole(qdb, index)
+	if qdb.nholes == nil then
+		qdb.nholes = 0
+	end
+	qdb.nholes = qdb.nholes + 1
+	if not qdb.holes then
+		qdb.holes = {}
+	end
+	qdb.holes[index] = true
+end
+
+
+local function qdb_del_hole(qdb)
+	assert(qdb.nholes > 0)
+	for num, _ in pairs(qdb.holes) do
+		qdb.nholes = qdb.nholes - 1
+		qdb.holes[num] = nil
+		return num
+	end
+end
+
+
+local function qdb_get_nholes(qdb)
+	if qdb.nholes == nil then
+		qdb.nholes = 0
+	end
+	return qdb.nholes
+end
+
+
 local no_quip_quips = {
 	"return -ENOQUIP;",
 	"I don't know about that",
@@ -27,9 +57,28 @@ local no_quip_quips = {
 
 local function get_quip(bot, command)
 	local qdb = bot.plugin.keystore:get(QUIP_INDEX_KEY)
-	if qdb.size > 0 then
-		local bucket, index = quip_bucket(math.random(1, qdb.size))
-		return "/say " .. bot.plugin.keystore:get(bucket)[index]
+
+	if (qdb.size - qdb_get_nholes(qdb)) > 0 then
+		local num = nil
+		if command.param then
+			-- With a parameter, pick a particular quip
+			num = tonumber(command.param)
+			if num == nil then
+				return "Invalid number: " .. command.param
+			end
+			if num < 0 or num > qdb.size then
+				return "Number out of bounds (max: " .. qdb.size .. ")"
+			end
+		else
+			-- Without a parameter, pick a random quip
+			repeat
+				num = math.random(1, qdb.size)
+			until not qdb.holes[num]
+		end
+
+		local bucket, index = quip_bucket(num)
+		local text = bot.plugin.keystore:get(bucket)[index]
+		return text and ("/say " .. text) or "That quip was deleted"
 	else
 		return "/say " .. no_quip_quips[math.random(1, #no_quip_quips)]
 	end
@@ -39,17 +88,48 @@ end
 local function add_quip(bot, command)
 	if command.param then
 		local qdb = bot.plugin.keystore:get(QUIP_INDEX_KEY)
-		qdb.size = qdb.size + 1
 
-		local bucket, index = quip_bucket(qdb.size)
+		local num
+		if qdb_get_nholes(qdb) > 0 then
+			num = qdb_del_hole(qdb)
+		else
+			qdb.size = qdb.size + 1
+			num = qdb.size
+		end
+
+		local bucket, index = quip_bucket(num)
 		local items = bot.plugin.keystore:get(bucket) or {}
 		items[index] = command.param
-		bot.plugin.keystore:set(bucket, items)
+		bot.plugin.keystore:set(QUIP_INDEX_KEY, qdb):set(bucket, items)
 
-		bot.plugin.keystore:set(QUIP_INDEX_KEY, qdb)
-		return "I'll remember that, it's quip #" .. qdb.size
+		return "I'll remember that, it's quip #" .. num
 	else
-		return get_quip(bot, command)
+		return "So… what would be the text of the quip? (hint: use “quip add <text>”)"
+	end
+end
+
+
+local function del_quip(bot, command)
+	if command.param then
+		local num = tonumber(command.param)
+		local qdb = bot.plugin.keystore:get(QUIP_INDEX_KEY)
+		if num then
+			if num < 1 or num > qdb.size then
+				return "Number out of bounds (max: " .. qdb.size .. ")"
+			end
+
+			local bucket, index = quip_bucket(num)
+			local items = bot.plugin.keystore:get(bucket)
+			qdb_add_hole(qdb, num)
+			items[index] = nil
+			bot.plugin.keystore:set(QUIP_INDEX_KEY, qdb):set(bucket, items)
+
+			return "Quip #" .. num .. " has been deleted"
+		else
+			return "Invalid number: " .. command.param
+		end
+	else
+		return "No quip number specified"
 	end
 end
 
@@ -64,10 +144,15 @@ return function (bot)
 	end
 
 	bot:add_plugin("commandevent")
-	bot:hook("command/quip", function (command)
-		return add_quip(bot, command)
-	end)
+
+	bot:hook("command/quip", bot.plugin.commandevent.dispatch {
+		add = function (command) return add_quip(bot, command) end;
+		del = function (command) return del_quip(bot, command) end;
+		get = function (command) return get_quip(bot, command) end;
+		_   = function (command) return get_quip(bot, command) end;
+	})
 	bot:hook("unhandled-command", function (command)
+		command.param = nil
 		return get_quip(bot, command)
 	end)
 
