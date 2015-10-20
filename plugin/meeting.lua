@@ -6,42 +6,15 @@
 -- Distributed under terms of the MIT license.
 --
 
-local strstrip = require("util.strutil").strip
 local html_escape = require("util.html").escape
+local strutil = require("util.strutil")
 
 -- Table key used to store the plugin config
 local CONFIG = "!meeting!config"
 
 
---
--- Based on Rici Lake's simple string interpolation
--- See: http://lua-users.org/wiki/StringInterpolation
---
-local function interpolate(text, vars)
-	return (text:gsub('([$%%]%b{})', function (w)
-		local value = vars[w:sub(3, -2)]
-		if value ~= nil then
-			value = tostring(value)
-			if w:sub(1, 1) == "$" then
-				return html_escape(value)
-			else
-				return value
-			end
-		else
-			return w
-		end
-	end))
-end
-
-local function template(text)
-	return function (vars)
-		return interpolate(text, vars)
-	end
-end
-
-
 -- TODO: Maybe allow overriding (or at least localizing) those messages.
-local render_html_minutes_header = template
+local render_html_minutes_header = strutil.template
 [[<DOCTYPE html>
 <html>
   <head>
@@ -62,7 +35,7 @@ local render_html_minutes_header = template
 
     <h3>Meeting Summary</h3>
 ]]
-local render_html_minutes_item = template
+local render_html_minutes_item = strutil.template
 [[  <li><span class="itemtype ${kind}">${kind}</span>: ${text}
     <span class="details">(<a href="#nick-${nick}">${nick}</a>, ${time_text})</span>
   </li>
@@ -82,7 +55,7 @@ local html_log_header =
   </head>
   <body>
 ]]
-local render_html_log_entry = template
+local render_html_log_entry = strutil.template
 [[
 <p class="${kind}">
   <a name="l-${line}"></a>
@@ -97,7 +70,7 @@ local html_footer =
 </html>
 ]]
 
-local render_md_minutes_header = template
+local render_md_minutes_header = strutil.template
 [[
 # %{title}
 
@@ -106,24 +79,24 @@ _(Meeting started by %{owner} at %{starttime} UTC)_
 ## Meeting Summary
 
 ]]
-local render_md_minutes_item = template
+local render_md_minutes_item = strutil.template
 [[* _%{kind}_: %{text} (%{nick}, %{time_text})
 ]]
 
-local render_msg_startmeeting = template
+local render_msg_startmeeting = strutil.template
   [[Meeting started at %{time_text} (UTC). The chair is %{owner}.
   * Useful commands: #action #agreed #help #info #idea #link #topic]]
-local render_msg_endmeeting = template
+local render_msg_endmeeting = strutil.template
   [[Meeting ended at %{time_text} (UTC).
    * Minutes: %{logurl}/%{minutesname}.html
    * Log: %{logurl}/%{logname}.html]]
-local render_topic_subject = template
+local render_topic_subject = strutil.template
   "Meeting: %{title} · Topic: %{current_topic}"
-local render_topic = template
+local render_topic = strutil.template
   "Meeting: %{title}"
-local render_msg_undo = template
+local render_msg_undo = strutil.template
   "Removed item from minutes: #%{kind} %{text}"
-local render_log_line = template
+local render_log_line = strutil.template
   "%{time_text} <%{nick}> %{text}\n"
 
 
@@ -334,7 +307,7 @@ end
 
 local function item_adder(kind)
 	return with_meeting(function (meeting, event, text)
-		text = strstrip(text or "")
+		text = strutil.strip(text or "")
 		event.room.bot:info("#" .. kind .. " " .. text)
 		if #text then
 			meeting:append(kind, text, event.sender.nick)
@@ -358,7 +331,7 @@ end
 
 local command_handlers = {
 	startmeeting = function (event, text)
-		text = strstrip(text or "")
+		text = strutil.strip(text or "")
 		if #text == 0 then
 			return event:reply("No meeting title specified")
 		end
@@ -410,7 +383,7 @@ local command_handlers = {
 	end);
 
 	topic = chair_only(function (meeting, event, text)
-		text = strstrip(text or "")
+		text = strutil.strip(text or "")
 		event.room.bot:info("#topic: " .. text)
 		if #text > 0 then
 			meeting:append("topic", text, event.sender.nick)
@@ -423,7 +396,7 @@ local command_handlers = {
 	end);
 
 	agreed = chair_only(function (meeting, event, text)
-		text = strstrip(text or "")
+		text = strutil.strip(text or "")
 		event.room.bot:info("#agreed " .. text)
 		if #text > 0 then
 			meeting:append("agreed", text, event.sender.nick)
@@ -433,7 +406,7 @@ local command_handlers = {
 	end);
 
 	accepted = chair_only(function (meeting, event, text)
-		text = strstrip(text or "")
+		text = strutil.strip(text or "")
 		event.room.bot:info("#accepted " .. text)
 		if #text > 0 then
 			meeting:append("accepted", text, event.sender.nick)
@@ -443,7 +416,7 @@ local command_handlers = {
 	end);
 
 	rejected = chair_only(function (meeting, event, text)
-		text = strstrip(text or "")
+		text = strutil.strip(text or "")
 		event.room.bot:info("#rejected " .. text)
 		if #text > 0 then
 			meeting:append("rejected", txt, event.sender.nick)
@@ -453,7 +426,7 @@ local command_handlers = {
 	end);
 
 	chair = chair_only(function (meeting, event, text)
-		text = strstrip(text or "")
+		text = strutil.strip(text or "")
 		if #text > 0 then
 			-- FIXME: Validate JID/nick properly
 			meeting:add_chair(text)
@@ -464,7 +437,7 @@ local command_handlers = {
 	end);
 
 	unchair = chair_only(function (meeting, event, text)
-		text = strstrip(text or "")
+		text = strutil.strip(text or "")
 		if #text > 0 then
 			if event.sender.nick == text then
 				return event:reply("You cannot unchair yourself")
