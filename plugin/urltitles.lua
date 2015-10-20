@@ -5,34 +5,9 @@
 --
 -- Distributed under terms of the MIT license.
 --
+
 local http_request = require("net.http").request
-local chr = string.char
-
-
--- TODO: Generate the table of entities from the official HTML spec
-local entity_map = setmetatable({
-	amp    = "&"; gt     = ">"; lt     = "<";
-	apos   = "'"; quot   = '"'; nbsp   = " ";
-	iexcl  = "¡"; cent   = "¢"; pound  = "£";
-	curren = "¤"; yen    = "¥"; brvbar = "¦";
-	sect   = "§"; copy   = "ⓒ"; ordf   = "ª";
-	laquo  = "«"; raquo  = "»"; reg    = "ⓡ";
-	deg    = "º"; middot = "·"; iquest = "¿";
-	ndash  = "–"; mdash  = "—"; bull   = "·";
-}, { __index = function (_, s)
-		if s:sub(1, 1) == "#" then
-			if s:sub(2, 2) == "x" then
-				return chr(tonumber(s:sub(3), 16))
-			else
-				return chr(tonumber(s:sub(2)))
-			end
-		end
-	end
-})
-
-local function html_unescape(str)
-	return (str:gsub("&(.-);", entity_map))
-end
+local html_unescape = require("util.html").unescape
 
 
 local function should_expand(url, include, exclude)
