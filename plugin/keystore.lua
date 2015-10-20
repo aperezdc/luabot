@@ -24,6 +24,8 @@ local function serialize(f, name, value, saved)
 	f:write(name, " = ")
 	if type(value) == "number" or type(value) == "string" then
 		f:write(serialize_basic(value), "\n")
+	elseif type(value) == "boolean" then
+		f:write(value and "true" or "false", "\n")
 	elseif type(value) == "table" then
 		if saved[value] then
 			f:write(saved[value], "\n")
