@@ -6,13 +6,10 @@
 -- Distributed under terms of the MIT license.
 --
 
+local strstrip = require("util.strutil").strip
+
 -- Table key used to store the plugin config
 local CONFIG = "!meeting!config"
-
-local strstrip_pattern = "^%s*(.-)%s*$"
-local function strstrip(s)
-	return string.match(s, strstrip_pattern)
-end
 
 
 -- TODO: Probably it would be good to move this to a separate
