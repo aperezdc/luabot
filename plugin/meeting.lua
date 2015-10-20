@@ -113,6 +113,19 @@ local html_footer =
 </html>
 ]]
 
+local render_md_minutes_header = template
+[[
+# %{title}
+
+_(Meeting started by %{owner} at %{starttime} UTC)_
+
+## Meeting Summary
+
+]]
+local render_md_minutes_item = template
+[[* _%{kind}_: %{text} (%{nick}, %{time_text})
+]]
+
 local render_msg_startmeeting = template
   [[Meeting started at %{time_text} (UTC). The chair is %{owner}.
   * Useful commands: #action #agreed #help #info #idea #link #topic]]
@@ -261,16 +274,20 @@ function meeting:_save_minutes(logdir, logname)
 	local timestamp = os.date("!%Y%m%dT%H%S%M", self.time)
 	local filename = self.room .. "-" .. timestamp
 	local minutes = io.open(logdir .. "/" .. filename .. ".html", "w")
+	local mdminutes = io.open(logdir .. "/" .. filename .. ".md", "w")
 
-	minutes:write(render_html_minutes_header {
+	local item = {
 		starttime = self.time_text,
 		title = self.title,
 		owner = self.owner,
 		logname = logname,
-	})
+	}
+	minutes:write(render_html_minutes_header(item))
+	mdminutes:write(render_md_minutes_header(item))
 
 	minutes:write("<ol>\n")
 	for _, topic in ipairs(agenda) do
+		mdminutes:write("* **", topic.title, "**\n")
 		minutes:write("<li><strong class=\"topic\">",
 		              html_escape(topic.title),
 		              "</strong>\n")
@@ -278,6 +295,7 @@ function meeting:_save_minutes(logdir, logname)
 			minutes:write("  <ol type=\"a\">\n")
 			for _, item in ipairs(topic.items) do
 				minutes:write(render_html_minutes_item(item))
+				mdminutes:write("  ", render_md_minutes_item(item))
 			end
 			minutes:write("  </ol>\n")
 		end
@@ -287,22 +305,28 @@ function meeting:_save_minutes(logdir, logname)
 
 	minutes:write("<h3>Action items</h3>\n",
 	              "<ol class=\"actions\">\n")
+	mdminutes:write("\n\n## Action items\n\n")
 	for _, item in ipairs(self.minutes) do
 		if item.kind == "action" then
 			minutes:write(render_html_minutes_item(item))
+			mdminutes:write(render_md_minutes_item(item))
 		end
 	end
 	minutes:write("</ol>\n")
 
 	minutes:write("<h3>People present (lines said)</h3>\n",
 	              "<ol class=\"nicklist\">\n")
+	mdminutes:write("\n\n## People present (lines said)\n\n")
 	for nick, count in pairs(self.nicks) do
 		minutes:write("<li>", nick, " (", tostring(count), ")</li>\n")
+		mdminutes:write("* ", nick, " (", tostring(count), ")\n")
 	end
 	minutes:write("</ol>\n")
 
 	minutes:write(html_footer)
+
 	minutes:close()
+	mdminutes:close()
 
 	return filename
 end
