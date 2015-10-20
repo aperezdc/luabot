@@ -7,23 +7,10 @@
 --
 
 local strstrip = require("util.strutil").strip
+local html_escape = require("util.html").escape
 
 -- Table key used to store the plugin config
 local CONFIG = "!meeting!config"
-
-
--- TODO: Probably it would be good to move this to a separate
---       module under util/
-local html_entities = {
-	["<" ] = "&lt;";
-	[">" ] = "&gt;";
-	["&" ] = "&amp;";
-	["'" ] = "&apos;";
-	["\""] = "&quot;";
-}
-local function html_escape(text)
-	return (text:gsub("([<&'\"])", html_entities))
-end
 
 
 --
