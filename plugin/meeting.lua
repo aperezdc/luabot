@@ -6,17 +6,12 @@
 -- Distributed under terms of the MIT license.
 --
 
-local setmetatable, pairs, ipairs, tostring = setmetatable, pairs, ipairs, tostring
-local tinsert, tconcat, tsort, tremove = table.insert, table.concat, table.sort, table.remove
-local os_time, os_date, fopen = os.time, os.date, io.open
-local str_match = string.match
-
 -- Table key used to store the plugin config
 local CONFIG = "!meeting!config"
 
 local strstrip_pattern = "^%s*(.-)%s*$"
 local function strstrip(s)
-	return str_match(s, strstrip_pattern)
+	return string.match(s, strstrip_pattern)
 end
 
 
@@ -142,7 +137,7 @@ function meeting.new(room, chair, title, time)
 	local m = setmetatable({
 		owner   = chair;
 		title   = title;
-		time    = time or os_time();
+		time    = time or os.time();
 		room    = room;
 		lurk    = false;
 		nicks   = {};
@@ -150,24 +145,24 @@ function meeting.new(room, chair, title, time)
 		log     = {};
 		minutes = {};
 	}, meeting)
-	m.time_text = os_date("!%c", m.time)
+	m.time_text = os.date("!%c", m.time)
 	m:add_nick(chair, 0)
 	m:add_chair(chair)
 	return m
 end
 
 function meeting:append(kind, text, nick, time)
-	local item = { time = time or os_time(), nick = nick, text = text }
-	item.time_text = os_date("!%H:%M:%S", item.time)
+	local item = { time = time or os.time(), nick = nick, text = text }
+	item.time_text = os.date("!%H:%M:%S", item.time)
 	if kind == "log" then
-		tinsert(self.log, item)
+		table.insert(self.log, item)
 		self:add_nick(nick, 1)
 	else
 		if kind == "topic" then
 			self.current_topic = text
 		end
 		item.kind = kind
-		tinsert(self.minutes, item)
+		table.insert(self.minutes, item)
 		self:append("log", "#" .. kind .. " " .. text, nick, item.time)
 	end
 end
@@ -197,7 +192,7 @@ end
 function meeting:get_chairs()
 	local result = {}
 	for nick, _ in pairs(self.chair) do
-		tinsert(result, nick)
+		table.insert(result, nick)
 	end
 	return result
 end
@@ -220,10 +215,10 @@ local function html_log_line_class(text)
 end
 
 function meeting:_save_logfile(logdir)
-	local timestamp = os_date("!%Y%m%dT%H%S%M", self.time)
+	local timestamp = os.date("!%Y%m%dT%H%S%M", self.time)
 	local filename = self.room .. "-" .. timestamp .. ".log"
-	local textlog = fopen(logdir .. "/" .. filename .. ".txt", "w")
-	local htmllog = fopen(logdir .. "/" .. filename .. ".html", "w")
+	local textlog = io.open(logdir .. "/" .. filename .. ".txt", "w")
+	local htmllog = io.open(logdir .. "/" .. filename .. ".html", "w")
 
 	htmllog:write(html_log_header)
 	local line_number = 0
@@ -249,13 +244,13 @@ end
 local function reorder_minutes(title, minutes)
 	local agenda = {}
 	local part = { title = title, items = {} }
-	tinsert(agenda, part)
+	table.insert(agenda, part)
 	for _, item in ipairs(minutes) do
 		if item.kind == "topic" then
 			part = { title = item.text, items = {} }
-			tinsert(agenda, part)
+			table.insert(agenda, part)
 		else
-			tinsert(part.items, item)
+			table.insert(part.items, item)
 		end
 	end
 	return agenda
@@ -263,9 +258,9 @@ end
 
 function meeting:_save_minutes(logdir, logname)
 	local agenda = reorder_minutes(self.title, self.minutes)
-	local timestamp = os_date("!%Y%m%dT%H%S%M", self.time)
+	local timestamp = os.date("!%Y%m%dT%H%S%M", self.time)
 	local filename = self.room .. "-" .. timestamp
-	local minutes = fopen(logdir .. "/" .. filename .. ".html", "w")
+	local minutes = io.open(logdir .. "/" .. filename .. ".html", "w")
 
 	minutes:write(render_html_minutes_header {
 		starttime = self.time_text,
@@ -394,7 +389,7 @@ local command_handlers = {
 
 		if not meeting.lurk then
 			event:post(render_msg_endmeeting {
-				time_text = os_date("!%c"),
+				time_text = os.date("!%c"),
 				minutesname = minutesname,
 				logname = logname,
 				logurl = logurl,
@@ -456,7 +451,7 @@ local command_handlers = {
 			meeting:add_chair(text)
 		end
 		if not meeting.lurk then
-			event:post("Current chairs: " .. tconcat(meeting:get_chairs(), ", "))
+			event:post("Current chairs: " .. table.concat(meeting:get_chairs(), ", "))
 		end
 	end);
 
@@ -469,7 +464,7 @@ local command_handlers = {
 			-- FIXME: Validate JID/nick properly
 			meeting:remove_chair(text)
 			if not event.lurk then
-				event:post("Current chairs: " .. tconcat(meeting:get_chairs(), ", "))
+				event:post("Current chairs: " .. table.concat(meeting:get_chairs(), ", "))
 			end
 		else
 			event:reply("No nick given")
@@ -481,7 +476,7 @@ local command_handlers = {
 		-- Manually add log item instead of adding an "undo"
 		-- item to avoid having #undo items in the minutes.
 		meeting:append("log", "#undo", event.sender.nick)
-		local item = tremove(meeting.minutes, #meeting.minutes)
+		local item = table.remove(meeting.minutes, #meeting.minutes)
 		if item then
 			event:reply(render_msg_undo(item))
 		else
@@ -522,10 +517,10 @@ command_handlers.reject = command_handlers.rejected
 function command_handlers.commands(event, text)
 	local commands = {}
 	for name, _ in pairs(command_handlers) do
-		tinsert(commands, name)
+		table.insert(commands, name)
 	end
-	tsort(commands)
-	event:reply("Available commands: " .. tconcat(commands, ", "),
+	table.sort(commands)
+	event:reply("Available commands: " .. table.concat(commands, ", "),
 	            "Please check http://meetbot.debian.net/Manual.html — " ..
                 "I am not a MeetBot, but I can mimic most of its movements" ..
                 " like a stealth ninja.")
