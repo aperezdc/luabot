@@ -11,44 +11,60 @@ local http_request = require("net.http").request
 local html_unescape = require("util.html").unescape
 
 
-local function should_expand(url, include, exclude)
-	if include then
-		for _, pattern in ipairs(include) do
-			if url:match(pattern) then
-				return true
+local function identity(x) return x end
+
+local function iterate_patterns(...)
+	local pattern_tables = { ... }
+	return coroutine.wrap(function ()
+		for _, patterns in ipairs(pattern_tables) do
+			if patterns ~= nil then
+				for k, v in pairs(patterns) do
+					if type(k) == "number" then
+						coroutine.yield(v, identity)
+					else
+						coroutine.yield(k, v)
+					end
+				end
 			end
 		end
-		if not exclude then
-			return false
-		end
-	end
-	if exclude then
-		for _, pattern in ipairs(exclude) do
-			if url:match(pattern) then
-				return false
-			end
-		end
-	end
-	return true
+	end)
 end
+
+local function match_url(url, include, exclude)
+	for pattern, postprocess in include do
+		if url:match(pattern) then
+			return true, postprocess
+		end
+	end
+	for pattern, _ in exclude do
+		if url:match(pattern) then
+			return false, nil
+		end
+	end
+	return true, identity
+end
+
 
 
 local function handle_urltitles(bot, event)
 	local url = event.body and event.body:match("https?://%S+")
 	if url then
-		local include_patterns, exclude_patterns = nil, nil
-		if event.room_jid then
-			local room_config = bot.config.plugin.muc[event.room_jid]
-			if room_config and room_config.urltitles then
-				include_patterns = room_config.urltitles.include
-				exclude_patterns = room_config.urltitles.exclude
-			end
+		local include_patterns, exclude_patterns
+		local room_config = event.room_jid and bot.config.plugin.muc[event.room_jid]
+
+		if room_config and room_config.urltitles then
+			include_patterns = iterate_patterns(room_config.urltitles.include,
+			                                    bot.config.plugin.urltitles.include)
+			exclude_patterns = iterate_patterns(room_config.urltitles.exclude,
+			                                    bot.config.plugin.urltitles.exclude)
 		else
-			include_patterns = bot.config.plugin.urltitles.include
-			exclude_patterns = bot.config.plugin.urltitles.exclude
+			include_patterns = iterate_patterns(bot.config.plugin.urltitles.include)
+			exclude_patterns = iterate_patterns(bot.config.plugin.urltitles.exclude)
 		end
 
-		if not should_expand(url, include_patterns, exclude_patterns) then
+		local should_expand, postprocess = match_url(url, include_patterns, exclude_patterns)
+		if not should_expand then
+			bot:debug("urltitles: URL skipped: " .. url)
 			return
 		end
 
@@ -60,7 +76,10 @@ local function handle_urltitles(bot, event)
 
 			local title = data:match("<[tT][iI][tT][lL][eE][^>]*>([^<]+)")
 			if title then
-				event:post(html_unescape(strstrip(title:gsub("%s+", " "))))
+				title = postprocess(html_unescape(strstrip(title:gsub("%s+", " "))))
+				if type(title) == "string" and #title > 0 then
+					event:post(title)
+				end
 			end
 		end)
 	end
