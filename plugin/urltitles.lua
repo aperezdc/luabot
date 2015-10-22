@@ -6,6 +6,7 @@
 -- Distributed under terms of the MIT license.
 --
 
+local strstrip = require("util.strutil").strip
 local http_request = require("net.http").request
 local html_unescape = require("util.html").unescape
 
@@ -59,7 +60,7 @@ local function handle_urltitles(bot, event)
 
 			local title = data:match("<[tT][iI][tT][lL][eE][^>]*>([^<]+)")
 			if title then
-				event:post(html_unescape(title:gsub("\n", " ")))
+				event:post(html_unescape(strstrip(title:gsub("%s+", " "))))
 			end
 		end)
 	end
