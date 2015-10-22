@@ -31,17 +31,21 @@ local function iterate_patterns(...)
 end
 
 local function match_url(url, include, exclude)
+	local has_include_patterns = false
 	for pattern, postprocess in include do
+		has_include_patterns = true
 		if url:match(pattern) then
 			return true, postprocess
 		end
 	end
+
 	for pattern, _ in exclude do
 		if url:match(pattern) then
 			return false, nil
 		end
 	end
-	return true, identity
+
+	return not has_include_patterns, identity
 end
 
 
