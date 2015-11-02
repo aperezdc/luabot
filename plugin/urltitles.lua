@@ -7,8 +7,8 @@
 --
 
 local strstrip = require("util.strutil").strip
-local http_request = require("net.http").request
 local html_unescape = require("util.html").unescape
+local urlfetch = require("util.urlfetch")
 
 
 local function identity(x) return x end
@@ -72,7 +72,7 @@ local function handle_urltitles(bot, event)
 			return
 		end
 
-		http_request(url, nil, function (data, code)
+		urlfetch(url, nil, function (data, code)
 			if code ~= 200 then
 				bot:warn("urltitles: HTTP code=" .. code .. " for " .. url)
 				return
