@@ -48,17 +48,16 @@ local function match_url(url, include, exclude)
 end
 
 
-
 local function handle_urltitles(bot, event)
 	local url = event.body and event.body:match("https?://%S+")
 	if url then
 		local include_patterns, exclude_patterns
-		local room_config = event.room_jid and bot.config.plugin.muc[event.room_jid]
+		local room_config = event:room_config("urltitles")
 
-		if room_config and room_config.urltitles then
-			include_patterns = iterate_patterns(room_config.urltitles.include,
+		if room_config then
+			include_patterns = iterate_patterns(room_config.include,
 			                                    bot.config.plugin.urltitles.include)
-			exclude_patterns = iterate_patterns(room_config.urltitles.exclude,
+			exclude_patterns = iterate_patterns(room_config.exclude,
 			                                    bot.config.plugin.urltitles.exclude)
 		else
 			include_patterns = iterate_patterns(bot.config.plugin.urltitles.include)

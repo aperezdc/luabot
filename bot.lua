@@ -165,6 +165,7 @@ function bot:start()
 	self.stream:hook("stanza", function (s)
 		local body = s:get_child("body")
 		local event = {
+			room_config = function () return nil end;
 			sender = { jid = s.attr.from };
 			body = (body and body:get_text()) or nil;
 			stanza = s;

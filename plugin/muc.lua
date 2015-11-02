@@ -61,8 +61,19 @@ return function (bot)
 				end
 				room:send(m:tag("body"):text(text))
 			end
+			function event:room_config(plugin)
+				return bot:room_config(self.room_jid, plugin)
+			end
 		end, 500)
 		return room
+	end
+
+	function bot:room_config(room_jid, plugin)
+		local config = self.config.plugin.muc[room_jid]
+		if config ~= nil and plugin ~= nil then
+			config = config[plugin]
+		end
+		return config
 	end
 
 	bot.stream:hook("pre-groupchat/joining", function (presence)
