@@ -35,6 +35,11 @@ plugin "meeting" {
 	logurl = "https://domain.com/meetings/";
 }
 
+-- These two make use of the "shortcuts" plugin, which is disabled by
+-- default, and is usually enabled in a per-room basis (see below).
+plugin "dsa" {}
+plugin "cve" {}
+
 -- Tell the bot to join a room, and specify per-room settings
 room "devel@conference.domain.com" {
 	-- Configure "urltitles" plugin in a per-room basis
@@ -47,4 +52,10 @@ room "devel@conference.domain.com" {
 }
 room "coffee@conference.domain.com" {
 	nick = "beans";
+
+	-- Expand CVE and DSA shortcuts.
+	shortcuts = {
+		cve = true;
+		dsa = true;
+	};
 }
