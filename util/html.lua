@@ -6,6 +6,7 @@
 -- Distributed under terms of the MIT license.
 --
 
+local strstrip = require("util.strutil").strip
 local chr = string.char
 
 -- TODO: Generate the tables of entities from the official HTML spec
@@ -38,11 +39,26 @@ local decode_entity_map = setmetatable({
 })
 
 
+local function unescape(text)
+	return (text:gsub("&(.-);", decode_entity_map))
+end
+
+local html_title_pattern = "<[tT][iI][tT][lL][eE][^>]*>([^<]+)"
+
 return {
+	unescape = unescape;
 	escape = function (text)
 		return (text:gsub("([<&'\"])", encode_entity_map))
 	end;
-	unescape = function (text)
-		return (text:gsub("&(.-);", decode_entity_map))
+
+	extract_title = function (text)
+		local title = text:match(html_title_pattern)
+		if title then
+			title = unescape(strstrip(title:gsub("%s+", " ")))
+			if #title == 0 then
+				title = nil
+			end
+		end
+		return title
 	end;
 }

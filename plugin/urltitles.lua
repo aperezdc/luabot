@@ -6,8 +6,7 @@
 -- Distributed under terms of the MIT license.
 --
 
-local strstrip = require("util.strutil").strip
-local html_unescape = require("util.html").unescape
+local html_title = require("util.html").extract_title
 local urlfetch = require("util.urlfetch")
 
 
@@ -78,9 +77,9 @@ local function handle_urltitles(bot, event)
 				return
 			end
 
-			local title = data:match("<[tT][iI][tT][lL][eE][^>]*>([^<]+)")
+			local title = html_title(data)
 			if title then
-				title = postprocess(html_unescape(strstrip(title:gsub("%s+", " "))))
+				title = postprocess(title)
 				if type(title) == "string" and #title > 0 then
 					event:post(title)
 				end

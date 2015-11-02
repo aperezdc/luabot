@@ -7,13 +7,13 @@
 --
 
 local s_match = string.match
-local html_escape = require("util.html").escape
 
 --
 -- Based on Rici Lake's simple string interpolation
 -- See: http://lua-users.org/wiki/StringInterpolation
 --
 local function interpolate(text, vars)
+	local html_escape = require("util.html").escape
 	return (text:gsub('([$%%]%b{})', function (w)
 		local value = vars[w:sub(3, -2)]
 		if value ~= nil then
