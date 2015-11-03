@@ -20,3 +20,10 @@ MIT-licensed:
 The following bundled third-party modules are MIT-licensed as well:
 
 * [basexx](https://github.com/aiq/basexx)
+
+Git Submodules
+--------------
+
+Git submodules under the `thirdparty/` subdirectory may contain their own
+licensing terms. For those which do not specify their licensing terms, the
+MIT license is assummed.
