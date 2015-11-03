@@ -1,0 +1,25 @@
+#! /bin/sh
+#
+# build-lightningmdb.sh
+# Copyright (C) 2015 Adrian Perez <aperez@igalia.com>
+#
+# Distributed under terms of the MIT license.
+#
+
+mydir=$(dirname "$0")
+
+case $1 in
+	build)
+		make -C "${mydir}/lightningmdb" \
+			LUAINC=/usr/include \
+			LUALIB=/usr/lib \
+			LUABIN=/usr/bin \
+			LMDBINC=/usr/include \
+			LMDBLIB=/usr/lib \
+			lightningmdb.so
+		;;
+	clean)
+		make -C "${mydir}/lightningmdb" clean
+		;;
+esac
+

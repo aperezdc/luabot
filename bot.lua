@@ -12,6 +12,10 @@ if _VERSION:match("^Lua 5%.2") then
 	require("verse.client")
 end
 
+-- Allow loading modules from thirdparty/<name>/<name>.so
+package.cpath = package.cpath .. ";./thirdparty/?/?.so"
+
+
 local stanza = require("util.stanza")
 local verse = require("verse").init("client")
 

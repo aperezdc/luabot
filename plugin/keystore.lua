@@ -6,6 +6,12 @@
 -- Distributed under terms of the MIT license.
 --
 
+-- TODO: Right now the "filesystem" backend does its own caching, which never
+--       performs eviction of values. It would be good to have a generic cache
+--       (LRU, likely) which can be used to decorate any backend, in the same
+--       way that wrap_serial() decorates a backend by adding serialization
+--       support.
+
 local to_base32 = require("util.basexx").to_base32
 
 -- Recipe from:
@@ -41,6 +47,42 @@ local function serialize(f, name, value, saved)
 		error("cannot serialize '" .. type(value) .. "' value")
 	end
 end
+
+
+--
+-- The following functions reuse the implementation of the serialization
+-- scheme above to read/write values to/from strings in memory. This is
+-- to be used as built-in fallback serialization if no better way is
+-- available/configured.
+--
+-- XXX: Concatenating strings in memory might be horribly inefficient.
+--
+local function filelike_write(self, ...)
+	for i = 1, select("#", ...) do
+		self.data = self.data .. select(i, ...)
+	end
+end
+
+local simpleserial = {
+	serialize = function (value)
+		local filelike = { data = "local "; write = filelike_write }
+		serialize(filelike, "_", value)
+		return filelike.data .. "return _\n"
+	end;
+
+	deserialize = function (value)
+		local chunk, err = load(value, nil, "t", {})
+		if not chunk then
+			return nil
+		end
+		local ok, value = pcall(chunk)
+		if ok then
+			return value
+		else
+			return nil
+		end
+	end;
+}
 
 
 local fsdir = {}
@@ -97,9 +139,50 @@ function inmem.new(bot)
 end
 
 
+local function lazy_backend(name)
+	return function (bot)
+		return require("plugin.keystore." .. name)(bot)
+	end
+end
+
+
+local serdedecorator = {}
+serdedecorator.__index = serdedecorator
+
+function serdedecorator.new(bot, backend)
+	-- TODO: Allow loading other serialization methods here.
+	local self = {
+		deserialize = simpleserial.deserialize;
+		serialize = simpleserial.serialize;
+		backend = backend;
+	}
+	return setmetatable(self, serdedecorator)
+end
+
+function serdedecorator:get(key)
+	local value = self.backend:get(key)
+	if value then
+		value = self.deserialize(value)
+	end
+	return value
+end
+
+function serdedecorator:set(key, value)
+	self.backend:set(key, self.serialize(value))
+	return self
+end
+
+
+local function wrap_serial(factory)
+	return function (bot)
+		return serdedecorator.new(bot, factory(bot))
+	end
+end
+
 local factories = {
 	filesystem = fsdir.new;
 	memory     = inmem.new;
+	lmdb       = wrap_serial(lazy_backend("lmdb"));
 }
 
 return function (bot)

@@ -1,0 +1,3 @@
+[submodule "thirdparty/lightningmdb"]
+	path = thirdparty/lightningmdb
+	url = git://github.com/shmul/lightningmdb

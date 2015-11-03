@@ -29,6 +29,10 @@ plugin "urltitles" {
 plugin "keystore" {
 	backend = "filesystem";
 	path = "./keystore";
+
+	-- This uses the LMDB backend (requires building lightningmdb)
+	--backend = "lmdb";
+	--path = "./keystore.db";
 }
 plugin "meeting" {
 	logdir = "./meeting-logs/";
