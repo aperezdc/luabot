@@ -112,6 +112,10 @@ function fsdir:set(key, value)
 	return self
 end
 
+function fsdir:del(key)
+	os.remove(self.path .. "/" .. to_base32(key))
+	return self
+end
 
 function fsdir.new(bot)
 	if type(bot.config.plugin.keystore.path) ~= "string" then
@@ -132,6 +136,11 @@ end
 
 function inmem:get(key)
 	return self.data[key]
+end
+
+function inmem:del(key)
+	self.data[key] = nil
+	return self
 end
 
 function inmem.new(bot)
@@ -170,6 +179,10 @@ end
 function serdedecorator:set(key, value)
 	self.backend:set(key, self.serialize(value))
 	return self
+end
+
+function serdedecorator:del(key)
+	return self.backend:del(key)
 end
 
 

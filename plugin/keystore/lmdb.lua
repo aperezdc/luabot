@@ -46,4 +46,13 @@ function lmdbstore:set(key, value)
 	t:commit()
 end
 
+function lmdbstore:del(key)
+	assert(type(key) == "string")
+
+	local t = self.env:txn_begin(nil, 0)
+	local d = t:dbi_open(nil, lmdb.MDB_CREATE)
+	local r = t:del(d, key, 0)
+	t:commit()
+end
+
 return lmdbstore.new
