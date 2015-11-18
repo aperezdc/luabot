@@ -89,11 +89,14 @@ function bot:error(...) return self.logger("error", ...) end
 function bot:info(...)  return self.logger("info", ...)  end
 function bot:warn(...)  return self.logger("warn", ...)  end
 
-function bot:add_plugin(name, plugin_config, global_config)
+function bot:add_plugin(name)
 	if not self.plugin[name] then
 		local f = require("plugin." .. name)
 		if type(f) == "function" then
-			self.plugin[name] = f(self, plugin_config, global_config) or true
+			if not self.config.plugin[name] then
+				self.config.plugin[name] = {}
+			end
+			self.plugin[name] = f(self) or true
 			self:info("plugin '" .. name .. "' activated")
 		end
 	end
