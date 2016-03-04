@@ -20,7 +20,11 @@ local issue_id_pattern = "%#([%d]+)"
 local issue_status_format = "%s #%d - %s (%s)"
 
 
-local function url_add_auth(base_url, username, password)
+local function url_add_auth(base_url, api_token, username, password)
+	if api_token then
+		username = api_token
+		password = "-"
+	end
 	if not (username and password) then
 		return
 	end
@@ -37,12 +41,14 @@ local function handle_message_issue_ids(bot, event)
 	end
 
 	local redmine_url   = bot.config.plugin.redmine.url
+	local api_token     = bot.config.plugin.redmine.api_token
 	local http_username = bot.config.plugin.redmine.http_username
 	local http_password = bot.config.plugin.redmine.http_password
 
 	local room_config = event:room_config("redmine")
 	if room_config then
 		redmine_url   = room_config.url or redmine_url
+		api_token     = room_config.api_token or api_token
 		http_username = room_config.http_username or http_username
 		http_password = room_config.http_password or http_password
 	end
@@ -58,7 +64,7 @@ local function handle_message_issue_ids(bot, event)
 	local url_pattern = escape_regex_chars(url.absolute(base_url, "issues/")) .. "([%d]+)"
 	bot:debug("redmine: url pattern=" .. url_pattern)
 
-	url_add_auth(base_url, http_username, http_password)
+	url_add_auth(base_url, api_token, http_username, http_password)
 
 	-- Try to match issue URLs
 	for issue_id in event.body:gmatch(url_pattern) do
