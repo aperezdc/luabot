@@ -59,6 +59,7 @@ return function (bot)
 				room    = event.room;
 				reply   = event.reply;
 				post    = event.post;
+				config  = function (self, ...) return event:config(...) end;
 			}
 			local ret = bot:event("command/" .. command, command_event)
 			if ret == nil then
