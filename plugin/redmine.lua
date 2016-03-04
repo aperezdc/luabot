@@ -71,6 +71,10 @@ local function handle_message_issue_ids(bot, event)
 		bot:debug("redmine: issue id=" .. issue_id .. " [url]")
 		local json_url = url.absolute(base_url, "issues/" .. issue_id .. ".json")
 		urlfetch(json_url, nil, function (data, code)
+			if code == 403 then
+				bot:debug("redmine: HTTP code=" .. code .. " [forbidden] for " .. json_url)
+				return
+			end
 			if code ~= 200 then
 				bot:warn("redmine: HTTP code=" .. code .. " for " .. json_url)
 				return
