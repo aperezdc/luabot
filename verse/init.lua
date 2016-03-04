@@ -11,13 +11,12 @@ local server = require "net.server";
 local events = require "util.events";
 local logger = require "util.logger";
 
-module("verse", package.seeall);
-local verse = _M;
-_M.server = server;
+local verse = {};
+verse.server = server;
 
 local stream = {};
 stream.__index = stream;
-stream_mt = stream;
+verse.stream_mt = stream;
 
 verse.plugins = {};
 
@@ -75,7 +74,7 @@ function verse.set_log_handler(log_handler, levels)
 	end
 end
 
-function _default_log_handler(name, level, message)
+local function _default_log_handler(name, level, message)
 	return io.stderr:write(name, "\t", level, "\t", message, "\n");
 end
 verse.set_log_handler(_default_log_handler, { "error" });
@@ -99,6 +98,43 @@ end
 
 function verse.quit()
 	return server.setquitting(true);
+end
+
+-- Listener factory
+local function new_listener(stream)
+	local conn_listener = {};
+	
+	function conn_listener.onconnect(conn)
+		if stream.server then
+			local client = verse.new();
+			conn:setlistener(new_listener(client));
+			client:set_conn(conn);
+			stream:event("connected", { client = client });
+		else
+			stream.connected = true;
+			stream:event("connected");
+		end
+	end
+	
+	function conn_listener.onincoming(conn, data)
+		stream:event("incoming-raw", data);
+	end
+	
+	function conn_listener.ondisconnect(conn, err)
+		if conn ~= stream.conn then return end
+		stream.connected = false;
+		stream:event("disconnected", { reason = err });
+	end
+
+	function conn_listener.ondrain(conn)
+		stream:event("drained");
+	end
+	
+	function conn_listener.onstatus(conn, new_status)
+		stream:event("status", new_status);
+	end
+	
+	return conn_listener;
 end
 
 function stream:listen(host, port)
@@ -209,43 +245,6 @@ function stream:add_plugin(name)
 		end
 	end
 	return self;
-end
-
--- Listener factory
-function new_listener(stream)
-	local conn_listener = {};
-	
-	function conn_listener.onconnect(conn)
-		if stream.server then
-			local client = verse.new();
-			conn:setlistener(new_listener(client));
-			client:set_conn(conn);
-			stream:event("connected", { client = client });
-		else
-			stream.connected = true;
-			stream:event("connected");
-		end
-	end
-	
-	function conn_listener.onincoming(conn, data)
-		stream:event("incoming-raw", data);
-	end
-	
-	function conn_listener.ondisconnect(conn, err)
-		if conn ~= stream.conn then return end
-		stream.connected = false;
-		stream:event("disconnected", { reason = err });
-	end
-
-	function conn_listener.ondrain(conn)
-		stream:event("drained");
-	end
-	
-	function conn_listener.onstatus(conn, new_status)
-		stream:event("status", new_status);
-	end
-	
-	return conn_listener;
 end
 
 return verse;
