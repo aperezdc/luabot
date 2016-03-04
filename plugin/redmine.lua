@@ -1,0 +1,121 @@
+#! /usr/bin/env lua
+--
+-- redmine.lua
+-- Copyright (C) 2016 Adrian Perez <aperez@igalia.com>
+--
+-- Distributed under terms of the MIT license.
+--
+
+local urlfetch = require "util.urlfetch"
+local json     = require "util.json"
+local url      = require "socket.url"
+
+
+local regex_magic_chars = "[%^%$%(%)%%%.%[%]%*%+%-%?]"
+local function escape_regex_chars (s)
+	return (s:gsub(regex_magic_chars, "%%%1"))
+end
+
+local issue_id_pattern = "%#([%d]+)"
+local issue_status_format = "%s #%d - %s (%s)"
+
+
+local function url_add_auth(base_url, username, password)
+	if not (username and password) then
+		return
+	end
+	base_url.user = username
+	base_url.password = password
+	base_url.userinfo = username .. ":" .. password
+	base_url.authority = base_url.userinfo .. "@" .. base_url.authority
+end
+
+
+local function handle_message_issue_ids(bot, event)
+	if not event.body then
+		return
+	end
+
+	local redmine_url   = bot.config.plugin.redmine.url
+	local http_username = bot.config.plugin.redmine.http_username
+	local http_password = bot.config.plugin.redmine.http_password
+
+	local room_config = event:room_config("redmine")
+	if room_config then
+		redmine_url   = room_config.url or redmine_url
+		http_username = room_config.http_username or http_username
+		http_password = room_config.http_password or http_password
+	end
+
+	if not redmine_url then
+		bot:warn("redmine: Base URL was not configured")
+		return
+	end
+	redmine_url = redmine_url .. "/"  -- Ensure that the URL ends in a slash
+	bot:debug("redmine: url=" .. redmine_url)
+
+	local base_url = url.parse(redmine_url)
+	url_add_auth(base_url, http_username, http_password)
+
+	-- Try to match issue URLs
+	local url_pattern = escape_regex_chars(redmine_url) .. "/issues/([%d]+)"
+	for issue_id in event.body:gmatch(url_pattern) do
+		bot:debug("redmine: issue id=" .. issue_id .. " [url]")
+		local json_url = url.absolute(base_url, "issues/" .. issue_id .. ".json")
+		urlfetch(json_url, nil, function (data, code)
+			if code ~= 200 then
+				bot:warn("redmine: HTTP code=" .. code .. " for " .. json_url)
+				return
+			end
+
+			local issue = json.decode(data)
+			issue = issue and issue.issue
+
+			if not issue then
+				bot:warn("redmine: no issue for id=" .. issue_id)
+				return
+			end
+
+			event:post(issue_status_format:format(issue.tracker.name,
+			                                      issue.id,
+			                                      issue.subject,
+				                                   issue.status.name))
+		end)
+	end
+
+	-- And now for plain #NNNN identifiers
+	for issue_id in event.body:gmatch(issue_id_pattern) do
+		bot:debug("redmine: issue id=" .. issue_id)
+		local json_url = url.absolute(base_url, "issues/" .. issue_id .. ".json")
+		urlfetch(json_url, nil, function (data, code)
+			if code ~= 200 then
+				bot:warn("redmine: HTTP code=" .. code .. " for " .. json_url)
+				return
+			end
+
+			local issue = json.decode(data)
+			issue = issue and issue.issue
+
+			if not issue then
+				bot:warn("redmine: no issue for id=" .. issue_id)
+				return
+			end
+
+			event:post(url.absolute(url.parse(redmine_url), "issues/" .. issue.id))
+			event:post(issue_status_format:format(issue.tracker.name,
+			                                      issue.id,
+			                                      issue.subject,
+				                                   issue.status.name))
+		end)
+	end
+end
+
+return function (bot)
+	local function handle_message(event)
+		return handle_message_issue_ids(bot, event)
+	end
+	bot:hook("message", handle_message)
+	bot:hook("groupchat/joined", function(room)
+		room:hook("message", handle_message)
+	end)
+end
