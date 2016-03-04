@@ -74,4 +74,7 @@ room "coffee@conference.domain.com" {
 		cve = true;
 		dsa = true;
 	};
+	quip = {
+		per_room = true;
+	};
 }
