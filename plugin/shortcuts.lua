@@ -17,7 +17,7 @@ return function (bot)
 		for name, identifier in body:gmatch(shortcut_pattern) do
 			name = name:lower()
 
-			local config = event:room_config("shortcuts")
+			local config = event:config("shortcuts")
 			if config == nil then
 				config = bot.config.plugin.shortcuts.enabled
 			end

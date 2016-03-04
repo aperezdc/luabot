@@ -19,14 +19,14 @@ return function (bot)
 		if x then
 			local invite = x:get_child("invite")
 			if invite then
-				local nick = bot.config.plugin.invite.nick or bot.config.nick
-				bot:join_room(event.stanza.attr.from, nick)
+				bot:join_room(event.stanza.attr.from,
+				              event:config("invite", "nick", bot.config.nick))
 			end
 		else
 			x = event.stanza:get_child("x", xmlns_jxc)
 			if x and x.attr.jid then
-				local nick = bot.config.plugin.invite.nick or bot.config.nick
-				bot:join_room(x.attr.jid, nick)
+				bot:join_room(x.attr.jid, nick,
+				              event:config("invite", "nick", bot.config.nick))
 			end
 		end
 	end)

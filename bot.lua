@@ -170,8 +170,18 @@ end
 
 function bot:start()
 	self.stream:hook("stanza", function (s)
+		local bot = self
 		local body = s:get_child("body")
 		local event = {
+			config = function (self, plugin_name, setting_name, default)
+				local value = bot.config.plugin[plugin_name]
+				if not value then return nil end
+				if setting_name then
+					return value[setting_name] or default
+				else
+					return value
+				end
+			end;
 			room_config = function () return nil end;
 			sender = { jid = s.attr.from };
 			body = (body and body:get_text()) or nil;
@@ -179,7 +189,6 @@ function bot:start()
 		}
 		if s.name == "message" then
 			local replied = false
-			local bot = self
 			function event:reply(...)
 				if replied then
 					return false

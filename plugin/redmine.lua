@@ -40,23 +40,16 @@ local function handle_message_issue_ids(bot, event)
 		return
 	end
 
-	local redmine_url   = bot.config.plugin.redmine.url
-	local api_token     = bot.config.plugin.redmine.api_token
-	local http_username = bot.config.plugin.redmine.http_username
-	local http_password = bot.config.plugin.redmine.http_password
-
-	local room_config = event:room_config("redmine")
-	if room_config then
-		redmine_url   = room_config.url or redmine_url
-		api_token     = room_config.api_token or api_token
-		http_username = room_config.http_username or http_username
-		http_password = room_config.http_password or http_password
-	end
-
+	local redmine_url = event:config("redmine", "url")
 	if not redmine_url then
 		bot:warn("redmine: Base URL was not configured")
 		return
 	end
+
+	local api_token     = event:config("redmine", "api_token")
+	local http_username = event:config("redmine", "http_username")
+	local http_password = event:config("redmine", "http_password")
+
 	redmine_url = redmine_url .. "/"  -- Ensure that the URL ends in a slash
 	bot:debug("redmine: url=" .. redmine_url)
 

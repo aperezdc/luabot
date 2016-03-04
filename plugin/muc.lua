@@ -61,6 +61,26 @@ return function (bot)
 				end
 				room:send(m:tag("body"):text(text))
 			end
+			function event:config(plugin_name, setting_name, default)
+				local global_config = bot.config.plugin[plugin_name]
+				if not global_config then
+					return nil
+				end
+				local room_config = self:room_config(plugin_name)
+				if room_config then
+					if setting_name then
+						return room_config[setting_name] or global_config[setting_name] or default
+					else
+						return room_config or global_config
+					end
+				else
+					if setting_name then
+						return global_config[setting_name] or default
+					else
+						return global_config
+					end
+				end
+			end;
 			function event:room_config(plugin)
 				return bot:room_config(self.room_jid, plugin)
 			end
