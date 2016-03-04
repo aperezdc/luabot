@@ -11,7 +11,7 @@ local json     = require "util.json"
 local url      = require "socket.url"
 
 
-local regex_magic_chars = "[%^%$%(%)%%%.%[%]%*%+%-%?]"
+local regex_magic_chars = "([%^%$%(%)%%%.%[%]%*%+%-%?])"
 local function escape_regex_chars (s)
 	return (s:gsub(regex_magic_chars, "%%%1"))
 end
@@ -55,10 +55,12 @@ local function handle_message_issue_ids(bot, event)
 	bot:debug("redmine: url=" .. redmine_url)
 
 	local base_url = url.parse(redmine_url)
+	local url_pattern = escape_regex_chars(url.absolute(base_url, "issues/")) .. "([%d]+)"
+	bot:debug("redmine: url pattern=" .. url_pattern)
+
 	url_add_auth(base_url, http_username, http_password)
 
 	-- Try to match issue URLs
-	local url_pattern = escape_regex_chars(redmine_url) .. "/issues/([%d]+)"
 	for issue_id in event.body:gmatch(url_pattern) do
 		bot:debug("redmine: issue id=" .. issue_id .. " [url]")
 		local json_url = url.absolute(base_url, "issues/" .. issue_id .. ".json")
