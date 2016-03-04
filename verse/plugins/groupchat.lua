@@ -11,7 +11,7 @@ local xmlns_muc = "http://jabber.org/protocol/muc";
 function verse.plugins.groupchat(stream)
 	stream:add_plugin("presence")
 	stream.rooms = {};
-	
+
 	stream:hook("stanza", function (stanza)
 		local room_jid = jid.bare(stanza.attr.from);
 		if not room_jid then return end
@@ -37,7 +37,7 @@ function verse.plugins.groupchat(stream)
 			return ret or (stanza.name == "message") or nil;
 		end
 	end, 500);
-	
+
 	function stream:join_room(jid, nick, opts)
 		if not nick then
 			return false, "no nickname supplied"

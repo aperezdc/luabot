@@ -23,9 +23,9 @@ verse.plugins = {};
 
 function verse.init(...)
 	for i=1,select("#", ...) do
-		local ok = pcall(require, "verse."..select(i,...));
+		local ok, err = pcall(require, "verse."..select(i,...));
 		if not ok then
-			error("Verse connection module not found: verse."..select(i,...));
+			error("Verse connection module not found: verse."..select(i,...)..err);
 		end
 	end
 	return verse;
@@ -119,6 +119,7 @@ function stream:connect(connect_host, connect_port)
 	-- Create and initiate connection
 	local conn = socket.tcp()
 	conn:settimeout(0);
+	conn:setoption("keepalive", true);
 	local success, err = conn:connect(connect_host, connect_port);
 	
 	if not success and err ~= "timeout" then

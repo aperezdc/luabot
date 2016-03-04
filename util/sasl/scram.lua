@@ -1,7 +1,8 @@
 
 local base64, unbase64 = require "mime".b64, require"mime".unb64;
-local crypto = require"crypto";
+local hashes = require"util.hashes";
 local bit = require"bit";
+local random = require"util.random";
 
 local tonumber = tonumber;
 local char, byte = string.char, string.byte;
@@ -14,14 +15,7 @@ local function XOR(a, b)
 	end));
 end
 
-local function H(str)
-	return crypto.digest("sha1", str, true);
-end
-
-local _hmac_digest = crypto.hmac.digest;
-local function HMAC(key, str)
-	return _hmac_digest("sha1", str, key, true);
-end
+local H, HMAC = hashes.sha1, hashes.hmac_sha1;
 
 local function Hi(str, salt, i)
 	local U = HMAC(str, salt .. "\0\0\0\1");
@@ -43,7 +37,7 @@ end
 
 local function scram(stream, name)
 	local username = "n=" .. value_safe(stream.username);
-	local c_nonce = base64(crypto.rand.bytes(15));
+	local c_nonce = base64(random.bytes(15));
 	local our_nonce = "r=" .. c_nonce;
 	local client_first_message_bare = username .. "," .. our_nonce;
 	local cbind_data = "";
