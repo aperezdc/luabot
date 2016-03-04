@@ -39,6 +39,18 @@ plugin "meeting" {
 	logurl = "https://domain.com/meetings/";
 }
 
+plugin "redmine" {
+	-- Uses the Redmine REST API to obtain information about issues.
+	url = "https://redmine.mycompany.com";
+
+	-- Optionally, the plugin supports HTTP authentication to access the API.
+	--http_username = "botuser";
+	--http_password = "botpass";
+
+	-- Alternatively, you may prefer to generate and use an API token.
+	--api_token = "token";
+}
+
 -- These two make use of the "shortcuts" plugin, which is disabled by
 -- default, and is usually enabled in a per-room basis (see below).
 plugin "dsa" {}
