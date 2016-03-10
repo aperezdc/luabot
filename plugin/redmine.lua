@@ -8,7 +8,6 @@
 
 local urlfetch = require "util.urlfetch"
 local json     = require "util.json"
-local url      = require "socket.url"
 
 
 local regex_magic_chars = "([%^%$%(%)%%%.%[%]%*%+%-%?])"
@@ -18,22 +17,6 @@ end
 
 local issue_id_pattern = "%#([%d]+)"
 local issue_status_format = "%s #%d - %s (%s)"
-
-
-local function url_add_auth(base_url, api_token, username, password)
-	if api_token then
-		username = api_token
-		password = "-"
-	end
-	if not (username and password) then
-		return
-	end
-	base_url.user = username
-	base_url.password = password
-	base_url.userinfo = username .. ":" .. password
-	base_url.authority = base_url.userinfo .. "@" .. base_url.authority
-end
-
 
 local function handle_message_issue_ids(bot, event)
 	if not event.body then
@@ -46,28 +29,28 @@ local function handle_message_issue_ids(bot, event)
 		return
 	end
 
-	local api_token     = event:config("redmine", "api_token")
-	local http_username = event:config("redmine", "http_username")
-	local http_password = event:config("redmine", "http_password")
+	local http_options = nil
+	local api_token = event:config("redmine", "api_token")
+	if api_token then
+		http_options = { username = api_token, password = "-" }
+	else
+		local u = event:config("redmine", "http_username")
+		local p = event:config("redmine", "http_password")
+		if username and password then
+			http_options = { username = u, password = p }
+		end
+	end
 
 	redmine_url = redmine_url .. "/"  -- Ensure that the URL ends in a slash
 	bot:debug("redmine: url=" .. redmine_url)
 
-	local base_url = url.parse(redmine_url)
-	local url_pattern = escape_regex_chars(url.absolute(base_url, "issues/")) .. "([%d]+)"
+	local url_pattern = escape_regex_chars(redmine_url .. "issues/") .. "([%d]+)"
 	bot:debug("redmine: url pattern=" .. url_pattern)
 
-	url_add_auth(base_url, api_token, http_username, http_password)
-
-	-- Try to match issue URLs
-	for issue_id in event.body:gmatch(url_pattern) do
-		bot:debug("redmine: issue id=" .. issue_id .. " [url]")
-		local json_url = url.absolute(base_url, "issues/" .. issue_id .. ".json")
-		urlfetch(json_url, nil, function (data, code)
-			if code == 403 then
-				bot:debug("redmine: HTTP code=" .. code .. " [forbidden] for " .. json_url)
-				return
-			end
+	local handle_issue = function (issue_id, add_url)
+		bot:debug("redmine: issue id=" .. issue_id)
+		local json_url = redmine_url .. "issues/" .. issue_id .. ".json"
+		urlfetch(json_url, http_options, function (data, code)
 			if code ~= 200 then
 				bot:warn("redmine: HTTP code=" .. code .. " for " .. json_url)
 				return
@@ -81,6 +64,9 @@ local function handle_message_issue_ids(bot, event)
 				return
 			end
 
+			if add_url then
+				event:post(redmine_url .. "issues/" .. issue.id)
+			end
 			event:post(issue_status_format:format(issue.tracker.name,
 			                                      issue.id,
 			                                      issue.subject,
@@ -88,30 +74,14 @@ local function handle_message_issue_ids(bot, event)
 		end)
 	end
 
+	-- Try to match issue URLs
+	for issue_id in event.body:gmatch(url_pattern) do
+		handle_issue(issue_id, false)
+	end
+
 	-- And now for plain #NNNN identifiers
 	for issue_id in event.body:gmatch(issue_id_pattern) do
-		bot:debug("redmine: issue id=" .. issue_id)
-		local json_url = url.absolute(base_url, "issues/" .. issue_id .. ".json")
-		urlfetch(json_url, nil, function (data, code)
-			if code ~= 200 then
-				bot:warn("redmine: HTTP code=" .. code .. " for " .. json_url)
-				return
-			end
-
-			local issue = json.decode(data)
-			issue = issue and issue.issue
-
-			if not issue then
-				bot:warn("redmine: no issue for id=" .. issue_id)
-				return
-			end
-
-			event:post(url.absolute(url.parse(redmine_url), "issues/" .. issue.id))
-			event:post(issue_status_format:format(issue.tracker.name,
-			                                      issue.id,
-			                                      issue.subject,
-				                                   issue.status.name))
-		end)
+		handle_issue(issue_id, true)
 	end
 end
 
