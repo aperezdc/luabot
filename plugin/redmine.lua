@@ -36,7 +36,7 @@ local function handle_message_issue_ids(bot, event)
 	else
 		local u = event:config("redmine", "http_username")
 		local p = event:config("redmine", "http_password")
-		if username and password then
+		if u and p then
 			http_options = { username = u, password = p }
 		end
 	end
