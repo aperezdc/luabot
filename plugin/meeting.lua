@@ -7,7 +7,9 @@
 --
 
 local html_escape = require("util.html").escape
-local strutil = require("util.strutil")
+local strutil     = require("util.strutil")
+local jid         = require("util.jid")
+local lfs         = require("lfs")
 
 -- Table key used to store the plugin config
 local CONFIG = "!meeting!config"
@@ -88,7 +90,7 @@ local render_msg_startmeeting = strutil.template
   * Useful commands: #action #agreed #help #info #idea #link #topic]]
 local render_msg_endmeeting = strutil.template
   [[Meeting ended at %{time_text} (UTC).
-   * Minutes: %{logurl}/%{minutesname}.html
+   * Minutes: %{logurl}/%{logname}.log.html
    * Log: %{logurl}/%{logname}.html]]
 local render_topic_subject = strutil.template
   "Meeting: %{title} · Topic: %{current_topic}"
@@ -184,11 +186,40 @@ local function html_log_line_class(text)
 	end
 end
 
-function meeting:_save_logfile(logdir)
-	local timestamp = os.date("!%Y%m%dT%H%S%M", self.time)
-	local filename = self.room .. "-" .. timestamp .. ".log"
-	local textlog = io.open(logdir .. "/" .. filename .. ".txt", "w")
-	local htmllog = io.open(logdir .. "/" .. filename .. ".html", "w")
+local function makedirs(path)
+   local parts = {}
+   for part in string.gmatch(path, "[^/]+") do
+      parts[#parts + 1] = part
+   end
+   if #parts > 1 then
+      local tail = parts[#parts]
+      parts[#parts] = nil
+      local head = table.concat(parts, "/")
+      local kind = lfs.attributes(head, "mode")
+      if not kind then
+         makedirs(head)
+      elseif kind ~= "directory" then
+         error("'" .. head .. "' is not a directory")
+      end
+   end
+   local ok, err = lfs.mkdir(path)
+   if not ok and err ~= "File exists" then
+      error("creating '" .. path .. "': " .. err)
+   end
+end
+
+local function dirname(path)
+   local parts = {}
+   for part in string.gmatch(path, "[^/]+") do
+      parts[#parts + 1] = part
+   end
+   parts[#parts] = nil  -- Remove last component
+   return table.concat(parts, "/")
+end
+
+function meeting:_save_logfile(logdir, logname)
+	local textlog = io.open(logdir .. "/" .. logname .. ".log.txt", "w")
+	local htmllog = io.open(logdir .. "/" .. logname .. ".log.html", "w")
 
 	htmllog:write(html_log_header)
 	local line_number = 0
@@ -207,8 +238,6 @@ function meeting:_save_logfile(logdir)
 
 	htmllog:close()
 	textlog:close()
-
-	return filename
 end
 
 local function reorder_minutes(title, minutes)
@@ -228,10 +257,8 @@ end
 
 function meeting:_save_minutes(logdir, logname)
 	local agenda = reorder_minutes(self.title, self.minutes)
-	local timestamp = os.date("!%Y%m%dT%H%S%M", self.time)
-	local filename = self.room .. "-" .. timestamp
-	local minutes = io.open(logdir .. "/" .. filename .. ".html", "w")
-	local mdminutes = io.open(logdir .. "/" .. filename .. ".md", "w")
+	local minutes = io.open(logdir .. "/" .. logname .. ".html", "w")
+	local mdminutes = io.open(logdir .. "/" .. logname .. ".md", "w")
 
 	local item = {
 		starttime = self.time_text,
@@ -284,14 +311,29 @@ function meeting:_save_minutes(logdir, logname)
 
 	minutes:close()
 	mdminutes:close()
-
-	return filename
 end
 
-function meeting:save(logdir)
-	local logname = self:_save_logfile(logdir)
-	local minutesname = self:_save_minutes(logdir, logname)
-	return logname, minutesname
+function meeting:save(logdir, logname)
+	local file_template_vars = {
+	   HH   = os.date("!%H", self.time),
+	   MM   = os.date("!%M", self.time),
+	   SS   = os.date("!%S", self.time),
+	   YYYY = os.date("!%Y", self.time),
+	   mm   = os.date("!%m", self.time),
+	   DD   = os.date("!%d", self.time),
+	   time = os.date("!%Y-%m-%dT%H:%M:%SZ", self.time),
+	   name = (jid.split(self.room)),
+	   jid  = self.room,
+   }
+	logdir  = strutil.template(logdir) (file_template_vars)
+	logname = strutil.template(logname)(file_template_vars)
+
+   -- Ensure that the log directory exists
+   makedirs(dirname(logdir .. "/" .. logname))
+	self:_save_logfile(logdir, logname)
+	self:_save_minutes(logdir, logname)
+
+	return logname
 end
 
 local function with_meeting(f)
@@ -364,14 +406,15 @@ local command_handlers = {
 	endmeeting = chair_only(function (meeting, event, text)
 		meeting:append("log", "#endmeeting", event.sender.nick)
 
-		local logdir = event.room.bot.plugin.meeting[CONFIG].logdir
-		local logurl = event.room.bot.plugin.meeting[CONFIG].logurl
-		local logname, minutesname = meeting:save(logdir)
+		local logdir  = event.room.bot.plugin.meeting[CONFIG].logdir
+		local logurl  = event.room.bot.plugin.meeting[CONFIG].logurl
+		local logname = event.room.bot.plugin.meeting[CONFIG].logname
+
+		logname = meeting:save(logdir, logname)
 
 		if not meeting.lurk then
 			event:post(render_msg_endmeeting {
 				time_text = os.date("!%c"),
-				minutesname = minutesname,
 				logname = logname,
 				logurl = logurl,
 			})
@@ -534,11 +577,13 @@ return function (bot)
 	bot:hook("groupchat/joined", function (room)
 		room:hook("message", handle_message)
 	end)
-	local logdir = bot.config.plugin.meeting.logdir or "."
+	local logdir  = bot.config.plugin.meeting.logdir or "."
+	local logname = bot.config.plugin.meeting.logname or "%{name}/%{time}"
 	return {
 		[CONFIG] = {
-			logdir = logdir,
-			logurl = bot.config.plugin.meeting.logurl or ("file://" .. logdir),
+			logdir  = logdir,
+			logname = logname,
+			logurl  = bot.config.plugin.meeting.logurl or ("file://" .. logdir),
 		}
 	}
 end

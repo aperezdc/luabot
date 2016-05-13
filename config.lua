@@ -35,8 +35,24 @@ plugin "keystore" {
 	--path = "./keystore.db";
 }
 plugin "meeting" {
-	logdir = "./meeting-logs/";
-	logurl = "https://domain.com/meetings/";
+	--
+	-- Template for log file names. The template may contain slashes, and
+	-- directories will be created as needed. The following values are
+	-- available for expansion:
+	--
+	--    %{name}   Name of the MUC room.
+	--    %{jid}    Full JID of the MUC room.
+	--    %{HH}     Hour, range 00 to 23
+	--    %{MM}     Minutes, range 00 to 59
+	--    %{SS}     Seconds, range 00 to 59
+	--    %{YYYY}   Year, as four digits
+	--    %{mm}     Month, range 01 to 12
+	--    %{DD}     Day, range 01 to 31
+	--    %{time}   ISO-8601 timestamp
+	--
+	logname = "%{name}/%{YYYY}/%{time}";
+	logdir  = "./meeting-logs/";
+	logurl  = "https://domain.com/meetings/";
 }
 
 plugin "redmine" {
