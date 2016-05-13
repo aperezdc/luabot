@@ -51,6 +51,15 @@ plugin "redmine" {
 	--api_token = "token";
 }
 
+plugin "trac" {
+   -- Uses the Trac JSON-RPC API to obtain information about issues.
+   url = "http://trac.mycompany.com/myproject";
+
+   -- Optionally, the plugin supports HTTP authentication to access the API.
+   --http_username = "botuser";
+   --http_password = "botpass";
+}
+
 -- These two make use of the "shortcuts" plugin, which is disabled by
 -- default, and is usually enabled in a per-room basis (see below).
 plugin "dsa" {}
