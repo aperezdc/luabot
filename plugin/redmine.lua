@@ -7,13 +7,8 @@
 --
 
 local urlfetch = require "util.urlfetch"
+local strutil  = require "util.strutil"
 local json     = require "util.json"
-
-
-local regex_magic_chars = "([%^%$%(%)%%%.%[%]%*%+%-%?])"
-local function escape_regex_chars (s)
-	return (s:gsub(regex_magic_chars, "%%%1"))
-end
 
 local issue_id_pattern = "%#([%d]+)"
 local issue_status_format = "%s #%d - %s (%s)"
@@ -44,7 +39,7 @@ local function handle_message_issue_ids(bot, event)
 	redmine_url = redmine_url .. "/"  -- Ensure that the URL ends in a slash
 	bot:debug("redmine: url=" .. redmine_url)
 
-	local url_pattern = escape_regex_chars(redmine_url .. "issues/") .. "([%d]+)"
+	local url_pattern = strutil.escape_pattern(redmine_url .. "issues/") .. "([%d]+)"
 	bot:debug("redmine: url pattern=" .. url_pattern)
 
 	local handle_issue = function (issue_id, add_url)

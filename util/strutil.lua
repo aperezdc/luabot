@@ -7,6 +7,7 @@
 --
 
 local s_match = string.match
+local s_gsub  = string.gsub
 
 --
 -- Based on Rici Lake's simple string interpolation
@@ -31,11 +32,15 @@ end
 
 
 local strstrip_pattern = "^%s*(.-)%s*$"
+local pattern_magic_chars = "([%^%$%(%)%%%.%[%]%*%+%-%?])"
 
 return {
 	strip = function (s)
 		return s_match(s, strstrip_pattern)
 	end;
+	escape_pattern = function (s)
+	   return (s_gsub(s, pattern_magic_chars, "%%%1"))
+   end;
 	interpolate = interpolate;
 	template = function (text)
 		return function (vars)

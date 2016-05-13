@@ -7,13 +7,9 @@
 --
 
 local urlfetch = require "util.urlfetch"
+local strutil  = require "util.strutil"
 local json     = require "util.json"
 
-
-local regex_magic_chars = "([%^%$%(%)%%%.%[%]%*%+%-%?])"
-local function escape_regex_chars (s)
-	return (s:gsub(regex_magic_chars, "%%%1"))
-end
 
 -- Generator for JSON-RPC request identifiers
 local request_id_counter = 0
@@ -62,7 +58,7 @@ local function handle_message_issue_ids(bot, event)
    local jsonrpc_url = trac_url .. "login/jsonrpc"
    bot:debug("trac url=" .. trac_url .. " jsonrpc=" .. jsonrpc_url)
 
-   local url_pattern = escape_regex_chars(trac_url .. "ticket/") .. "(%d+)"
+   local url_pattern = strutil.escape_pattern(trac_url .. "ticket/") .. "(%d+)"
    bot:debug("trac url pattern=" .. url_pattern)
 
    local handle_issue = function (issue_id, add_url)
