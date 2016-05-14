@@ -327,6 +327,28 @@ function bot:load_config(path)
 	return self:configure(config)
 end
 
+function bot:get_config(plugin_name, setting_name, default, room_jid)
+   local global_config = self.config.plugin[plugin_name]
+   if not global_config then
+      return nil
+   end
+   if room_jid then
+      local room_config = self:room_config(room_jid, plugin_name)
+      if room_config then
+         if setting_name then
+            return room_config[setting_name] or global_config[setting_name] or default
+         else
+            return room_config or global_config
+         end
+      end
+   end
+   if setting_name then
+      return global_config[setting_name] or default
+   else
+      return global_config
+   end
+end
+
 
 -- Run, Forrest, run!
 local config_file = "config.lua"
