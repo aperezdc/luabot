@@ -85,6 +85,11 @@ plugin "trac" {
    --http_password = "botpass";
 }
 
+-- Receives notifications from GitHub repositories using a webhook.
+-- This needs the "httpevent" plugin above to be configured. See below
+-- for an example on how to specify the repository and secret key.
+plugin "github" {}
+
 -- These two make use of the "shortcuts" plugin, which is disabled by
 -- default, and is usually enabled in a per-room basis (see below).
 plugin "dsa" {}
@@ -111,4 +116,19 @@ room "coffee@conference.domain.com" {
 	quip = {
 		per_room = true;
 	};
+}
+room "luabot-dev@conference.domain.com" {
+   github = {
+      -- Enables the webhook receiver. The bot will listen over HTTP in the
+      -- port specified for the "httpevent" plugin. The URL for the webhook
+      -- contains the name of the repository, prefixed with "github/". For
+      -- this example, the URL to configure in GitHub would be:
+      --
+      --   http://luabothost:8888/github/aperezdc/luabot
+      --
+      webhook = {
+         repo = "aperezdc/luabot";
+         secret = "this is super secret";
+      };
+   };
 }
