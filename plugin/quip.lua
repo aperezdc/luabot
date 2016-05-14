@@ -175,8 +175,6 @@ end
 
 return function (bot)
 	bot:add_plugin("keystore")
-
-
 	bot:add_plugin("commandevent")
 
 	bot:hook("command/quip", bot.plugin.commandevent.dispatch {
