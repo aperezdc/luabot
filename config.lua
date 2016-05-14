@@ -18,6 +18,15 @@ nick = "luabot"
 -- Load plugins, and specify their configurations. Note that the "muc"
 -- plugin is always loaded and dos not need to be specified here.
 plugin "invite" {}
+
+plugin "httpevent" {
+   -- Exports functionality over HTTP using a built-in web server. This
+   -- is used by a few plugins to provide additional functionality. If
+   -- a port is not configured the web server won't be available.
+   port = 8888;
+   -- host = "localhost";
+}
+
 plugin "urltitles" {
 	-- A lists of Lua patterns can be given to filter which URLs are
 	-- expanded and which ones are not. This is mostly used in a
