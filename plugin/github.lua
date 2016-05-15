@@ -16,7 +16,14 @@ local jid      = require "util.jid"
 local format_render = {}
 local format_data = {}
 local function format(name, text, func)
-   format_render[name] = template(text)
+   if type(text) == "table" then
+      for index, item in ipairs(text) do
+         text[index] = template(item)
+      end
+      format_render[name] = text
+   else
+      format_render[name] = { template(text) }
+   end
    if type(func) == "string" then
       format_data[name] = format_data[func]
    else
@@ -97,8 +104,11 @@ local function handle_webhook(bot, room, request, response)
       return
    end
 
-   local body = format_render[event](format_data[event](decode(request.body)))
-   room:send(stanza.message({ from = bot.rooms[room.jid].nick }, body))
+   local data = format_data[event](decode(request.body))
+   local attr = { from = bot.rooms[room.jid].nick }
+   for _, render_message in ipairs(format_render[event]) do
+      room:send(stanza.message(attr, render_message(data)))
+   end
 end
 
 return function (bot)
