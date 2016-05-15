@@ -48,7 +48,7 @@ end
 
 
 format("create",
-   "github: %{repo}: %{ref_type} '%{ref}' created by @%{user}",
+   "[%{repo}] %{ref_type} '%{ref}' created by @%{user}",
    function (data)
       return {
          ref      = data.ref,
@@ -59,11 +59,11 @@ format("create",
    end)
 
 format("delete",
-   "github: %{repo}: %{ref_type} '%{ref}' deleted by @%{user}",
+   "[%{repo}] %{ref_type} '%{ref}' deleted by @%{user}",
    "create")
 
 format("member",
-   "github: %{repo}: @%{user} %{action} collaborator @%{member}",
+   "[%{repo}] @%{user} %{action} collaborator @%{member}",
    function (data)
       return {
          action = data.action,
@@ -74,7 +74,7 @@ format("member",
    end)
 
 format("pull_request",
-   { "github: %{repo}: @%{user} %{action} PR#%{number}%{extra}%{state}",
+   { "[%{repo}] @%{user} %{action} PR#%{number}%{extra}%{state}",
      " - Title: %{title}",
      " - URL: %{url}" },
    function (data)
@@ -97,7 +97,7 @@ format("pull_request",
    end)
 
 format("pull_request_review_comment",
-   { "github: %{repo}: @%{user} %{action} comment on PR#%{number} (%{state})",
+   { "[%{repo}] @%{user} %{action} comment on PR#%{number} (%{state})",
      " - Title: %{title}",
      " - Comment: %{body}",
      " - URL: %{url}" },
