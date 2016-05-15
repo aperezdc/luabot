@@ -114,6 +114,24 @@ format("pull_request_review_comment",
       }
    end)
 
+format("issue_comment",
+   { "[%{repo}] @%{user} %{action} comment on issue #%{number} (%{state})",
+     " - Title: %{title}",
+     " - Comment: %{body}",
+     " - URL: %{url}" },
+   function (data)
+      return {
+         action  = data.action,
+         user    = data.sender.login,
+         url     = data.comment.html_url,
+         body    = shorten(data.comment.body),
+         repo    = data.repository.full_name,
+         number  = data.issue.number,
+         title   = data.issue.title,
+         state   = data.issue.state,
+      }
+   end)
+
 
 local function make_stanza(bot, room, body)
    local bot_jid = bot.rooms[room.jid]
