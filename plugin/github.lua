@@ -32,6 +32,21 @@ local function format(name, text, func)
 end
 
 
+local shorten_pattern = "[^%s]+"
+local function shorten(text, wordcount)
+   wordcount = wordcount or 15
+   local words = {}
+   for word in text:gmatch(shorten_pattern) do
+      if #words >= wordcount then
+         words[#words + 1] = " […]"
+         break
+      end
+      words[#words + 1] = word
+   end
+   return table.concat(words, " ")
+end
+
+
 format("create",
    "github: %{repo}: %{ref_type} '%{ref}' created by @%{user}",
    function (data)
@@ -76,6 +91,27 @@ format("pull_request",
          summary = data.pull_request.title,
          state   = state and (" (" .. state .. ")"),
          extra   = extra,
+      }
+   end)
+
+format("pull_request_review_comment",
+   { "github: %{repo}: @%{user} %{action} comment on PR '%{summary}' (%{state})",
+     "%{url}",
+     "%{body}" },
+   function (data)
+      local body = ""
+      if data.action == "created" then
+         body = "— '" .. shorten(data.comment.body) .. "'"
+      end
+      return {
+         action  = data.action,
+         user    = data.sender.login,
+         url     = data.comment.html_url,
+         repo    = data.repository.full_name,
+         number  = data.pull_request.number,
+         summary = data.pull_request.title,
+         state   = data.pull_request.state,
+         body    = body,
       }
    end)
 
