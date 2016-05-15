@@ -143,7 +143,10 @@ local function handle_webhook(bot, room, request, response)
    local data = format_data[event](decode(request.body))
    local attr = { from = bot.rooms[room.jid].nick }
    for _, render_message in ipairs(format_render[event]) do
-      room:send(stanza.message(attr, render_message(data)))
+      local body = render_message(data)
+      if body and #body > 0 then
+         room:send(stanza.message(attr, body))
+      end
    end
 end
 
