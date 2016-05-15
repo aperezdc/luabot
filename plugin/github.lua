@@ -74,7 +74,9 @@ format("member",
    end)
 
 format("pull_request",
-   "github: %{repo}: @%{user} %{action} PR '%{summary}'%{extra}%{state} - %{url}",
+   { "github: %{repo}: @%{user} %{action} PR#%{number}%{extra}%{state}",
+     " - Title: %{title}",
+     " - URL: %{url}" },
    function (data)
       local extra, state = "", data.pull_request.state
       if action == "closed" or action == "opened" then
@@ -88,30 +90,27 @@ format("pull_request",
          user    = data.sender.login,
          repo    = data.repository.full_name,
          url     = data.pull_request.html_url,
-         summary = data.pull_request.title,
+         title   = data.pull_request.title,
          state   = state and (" (" .. state .. ")"),
          extra   = extra,
       }
    end)
 
 format("pull_request_review_comment",
-   { "github: %{repo}: @%{user} %{action} comment on PR '%{summary}' (%{state})",
-     "%{url}",
-     "%{body}" },
+   { "github: %{repo}: @%{user} %{action} comment on PR#%{number} (%{state})",
+     " - Title: %{title}",
+     " - Comment: %{body}",
+     " - URL: %{url}" },
    function (data)
-      local body = ""
-      if data.action == "created" then
-         body = "— '" .. shorten(data.comment.body) .. "'"
-      end
       return {
          action  = data.action,
          user    = data.sender.login,
          url     = data.comment.html_url,
+         body    = shorten(data.comment.body),
          repo    = data.repository.full_name,
          number  = data.pull_request.number,
-         summary = data.pull_request.title,
+         title   = data.pull_request.title,
          state   = data.pull_request.state,
-         body    = body,
       }
    end)
 
