@@ -103,6 +103,16 @@ format("issue_comment",
       data.comment.short_body = shorten(data.comment.body)
    end)
 
+format("push",
+   "[%{repository.name}] @%{pusher.name} pushed %{size} commits to %{short_ref} — %{compare}",
+   function (data)
+      local last_component
+      for component in data.ref:gmatch("[^/]+") do
+         last_component = component
+      end
+      data.short_ref = last_component
+   end)
+
 
 local function make_stanza(bot, room, body)
    local bot_jid = bot.rooms[room.jid]
