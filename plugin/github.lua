@@ -83,6 +83,8 @@ format("pull_request",
          state = nil
       elseif action == "assigned" then
          extra = " to @" .. data.pull_request.assignee.login
+      elseif action == "synchronize" then
+         action = "synchronized"
       end
       return {
          action  = data.action,
