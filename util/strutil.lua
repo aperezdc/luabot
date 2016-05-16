@@ -27,10 +27,10 @@ end
 local dotted_path_pattern = "[^%.]+"
 local function interpolate(text, value)
    return (s_gsub(text, "([$%%]%b{})", function (dotted_path)
-      local completed = true
+      local value = value
       for component in s_gmatch(s_sub(dotted_path, 3, -2), dotted_path_pattern) do
          if _type(value) ~= "table" then
-            completed = false
+            value = dotted_path
             break
          end
          if _type(value[component]) == "function" then
@@ -40,15 +40,11 @@ local function interpolate(text, value)
             value = value[component]
          end
       end
-      if completed then
-         value = _tostring(value)
-         if s_sub(dotted_path, 1, 1) == "$" then
-            return html_escape(value)
-         else
-            return value
-         end
+      value = _tostring(value)
+      if s_sub(dotted_path, 1, 1) == "$" then
+         return html_escape(value)
       else
-         return dotted_path
+         return value
       end
    end))
 end
