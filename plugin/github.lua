@@ -16,19 +16,8 @@ local jid      = require "util.jid"
 local format_render = {}
 local format_data = {}
 local function format(name, text, func)
-   if type(text) == "table" then
-      for index, item in ipairs(text) do
-         text[index] = template(item)
-      end
-      format_render[name] = text
-   else
-      format_render[name] = { template(text) }
-   end
-   if type(func) == "string" then
-      format_data[name] = format_data[func]
-   else
-      format_data[name] = func
-   end
+   format_render[name] = template(text)
+   format_data[name] = func
 end
 
 
@@ -48,90 +37,70 @@ end
 
 
 format("create",
-   "[%{repo}] %{ref_type} '%{ref}' created by @%{user}",
-   function (data)
-      return {
-         ref      = data.ref,
-         ref_type = data.ref_type,
-         user     = data.sender.login,
-         repo     = data.repository.full_name,
-      }
-   end)
+   "[%{repository.name}] %{ref_type} '%{ref}' created by @%{sender.login}")
 
 format("delete",
-   "[%{repo}] %{ref_type} '%{ref}' deleted by @%{user}",
-   "create")
+   "[%{repository.name}] %{ref_type} '%{ref}' deleted by @%{sender.login}")
 
 format("member",
-   "[%{repo}] @%{user} %{action} collaborator @%{member}",
-   function (data)
-      return {
-         action = data.action,
-         user   = data.sender.login,
-         member = data.member.login,
-         repo   = data.repository.full_name,
-      }
-   end)
+   "[%{repository.name}] @%{sender.login} %{action} collaborator @%{member.login}")
 
 format("pull_request",
-   { "[%{repo}] @%{user} %{action} PR#%{number}%{extra}%{state}",
-     " - Title: %{title}",
-     " - URL: %{url}" },
+   "[%{repository.name}] @%{sender.login} %{action} pull request #%{number}: " ..
+   "%{pull_request.title}%{extra} — %{pull_request.html_url}",
    function (data)
-      local extra, state = "", data.pull_request.state
-      if action == "closed" or action == "opened" then
-         state = nil
-      elseif action == "assigned" then
-         extra = " to @" .. data.pull_request.assignee.login
-      elseif action == "synchronize" then
-         action = "synchronized"
+      data.extra = (data.action == "assigned") and " to @" .. data.pull_request.assignee.login or ""
+      if data.action == "edited" then
+         local changes = {}
+         if data.changes.title then
+            changes[#changes + 1] = "title"
+         end
+         if data.changes.body then
+            changes[#changes + 1] = "description"
+         end
+         if #changes > 0 then
+            data.extra = data.extra .. " (" .. table.concat(changes, ", ") .. ")"
+         end
       end
-      return {
-         action  = data.action,
-         number  = data.number,
-         user    = data.sender.login,
-         repo    = data.repository.full_name,
-         url     = data.pull_request.html_url,
-         title   = data.pull_request.title,
-         state   = state and (" (" .. state .. ")"),
-         extra   = extra,
-      }
    end)
 
 format("pull_request_review_comment",
-   { "[%{repo}] @%{user} %{action} comment on PR#%{number} (%{state})",
-     " - Title: %{title}",
-     " - Comment: %{body}",
-     " - URL: %{url}" },
+   "[%{repository.name}] @%{sender.login} %{action} comment on pull request " ..
+   "#%{pull_request.number}: %{pull_request.title} (%{pull_request.state}) " ..
+   "\"%{comment.short_body}\" — %{comment.html_url}",
    function (data)
-      return {
-         action  = data.action,
-         user    = data.sender.login,
-         url     = data.comment.html_url,
-         body    = shorten(data.comment.body),
-         repo    = data.repository.full_name,
-         number  = data.pull_request.number,
-         title   = data.pull_request.title,
-         state   = data.pull_request.state,
-      }
+      data.comment.short_body = shorten(data.comment.body)
+   end)
+
+format("issues",
+   "[%{repository.name}] @%{sender.login} %{action} #%{issue.number}: " ..
+   "%{issue.title}%{extra} — %{issue.html_url}",
+   function (data)
+      if data.action == "assigned" or data.action == "unassigned" then
+         data.extra = " (owner: @" .. data.assignee.login .. ")"
+      elseif data.action == "labeled" or data.action == "unlabeled" then
+         data.extra = " (label: " .. data.label.name .. ")"
+      elseif data.action == "edited" then
+         local changes = {}
+         if data.changes.title then
+            changes[#changes + 1] = "title"
+         end
+         if data.changes.body then
+            changes[#changes + 1] = "description"
+         end
+         if #changes > 0 then
+            data.extra = " (" .. table.concat(changes, ", ") .. ")"
+         end
+      else
+         data.extra = ""
+      end
    end)
 
 format("issue_comment",
-   { "[%{repo}] @%{user} %{action} comment on issue #%{number} (%{state})",
-     " - Title: %{title}",
-     " - Comment: %{body}",
-     " - URL: %{url}" },
+   "[%{repository.name}] @%{sender.login} %{action} comment on #%{issue.number}: " ..
+   "%{issue.title} \"%{comment.short_body}\" (%{issue.state}) — %{comment.html_url}",
    function (data)
-      return {
-         action  = data.action,
-         user    = data.sender.login,
-         url     = data.comment.html_url,
-         body    = shorten(data.comment.body),
-         repo    = data.repository.full_name,
-         number  = data.issue.number,
-         title   = data.issue.title,
-         state   = data.issue.state,
-      }
+      data.comment.short_body = shorten(data.comment.body)
    end)
 
 
@@ -154,19 +123,19 @@ local function handle_webhook(bot, room, request, response)
    bot:debug("github: webhook event=" .. event)
    bot:debug("github: webhook payload:\n" .. request.body)
 
-   if not format_data[event] then
+   if not format_render[event] then
       bot:warn("github: no formatter for event: " .. event)
       return
    end
 
-   local data = format_data[event](decode(request.body))
-   local attr = { from = bot.rooms[room.jid].nick }
-   for _, render_message in ipairs(format_render[event]) do
-      local body = render_message(data)
-      if body and #body > 0 then
-         room:send(stanza.message(attr, body))
-      end
+   local data = decode(request.body)
+   if format_data[event] then
+      format_data[event](data)
    end
+
+   local attr = { from = bot.rooms[room.jid].nick }
+   local body = format_render[event](data)
+   room:send(stanza.message(attr, body))
 end
 
 return function (bot)
