@@ -8,6 +8,7 @@
 
 local template = require "util.strutil" .template
 local decode   = require "util.json" .decode
+local jsonnull = require "util.json" .null
 local hmac     = require "util.sha1" .hmac
 local stanza   = require "util.stanza"
 local jid      = require "util.jid"
@@ -111,6 +112,27 @@ format("push",
          last_component = component
       end
       data.short_ref = last_component
+   end)
+
+format("status",
+   "[%{short_name}] Testing %{state}: %{short_sha} “%{commit_title}” " ..
+   "by @%{commit.author.login} (%{context})%{optional_url}",
+   function (data)
+      data.short_sha = data.sha:sub(1, 7)
+      for component in data.name:gmatch("[^/]+") do
+         -- Pick the last component of the repository name
+         data.short_name = component
+      end
+      for line in data.commit.commit.message:gmatch("[^\n]+") do
+         -- Pick the first commit message line only
+         data.commit_title = line
+         break
+      end
+      if data.target_url ~= jsonnull then
+         data.optional_url = " — " .. data.target_url
+      else
+         data.optional_url = ""
+      end
    end)
 
 
