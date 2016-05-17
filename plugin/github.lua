@@ -62,6 +62,8 @@ format("pull_request",
          if #changes > 0 then
             data.extra = data.extra .. " (" .. table.concat(changes, ", ") .. ")"
          end
+      elseif data.action == "synchronize" then
+         data.action = "synchronized"
       end
    end)
 
