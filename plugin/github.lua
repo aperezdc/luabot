@@ -68,7 +68,7 @@ format("pull_request",
 format("pull_request_review_comment",
    "[%{repository.name}] @%{sender.login} %{action} comment on pull request " ..
    "#%{pull_request.number}: %{pull_request.title} (%{pull_request.state}) " ..
-   "\"%{comment.short_body}\" — %{comment.html_url}",
+   "“%{comment.short_body}” — %{comment.html_url}",
    function (data)
       data.comment.short_body = shorten(data.comment.body)
    end)
@@ -99,7 +99,7 @@ format("issues",
 
 format("issue_comment",
    "[%{repository.name}] @%{sender.login} %{action} comment on #%{issue.number}: " ..
-   "%{issue.title} \"%{comment.short_body}\" (%{issue.state}) — %{comment.html_url}",
+   "%{issue.title} “%{comment.short_body}” (%{issue.state}) — %{comment.html_url}",
    function (data)
       data.comment.short_body = shorten(data.comment.body)
    end)
