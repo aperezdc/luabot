@@ -149,9 +149,14 @@ local function handle_webhook(bot, room, request, response)
          return 401  -- Unauthorized
       end
    end
-   response:send()  -- Signal the request as accepted early
 
    local event = request.headers.x_github_event
+   if not event then
+      return 400  -- Bad Request
+   end
+
+   response:send()  -- Signal the request as accepted early
+
    bot:debug("github: webhook event=" .. event)
    bot:debug("github: webhook payload:\n" .. request.body)
 
