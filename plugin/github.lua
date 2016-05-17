@@ -114,6 +114,7 @@ format("push",
          last_component = component
       end
       data.short_ref = last_component
+      data.size = data.size or #data.commits
    end)
 
 format("status",
