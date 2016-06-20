@@ -1,0 +1,13 @@
+id: "luabot"
+url: "http://localhost:8888"
+as_token: "abcdef123456qwerty"
+hs_token: "123456abcdef123456"
+sender_localpart: "luabot"
+namespaces:
+  rooms: []
+  users:
+    - exclusive: True
+      regex: "@jabber_.*"
+  aliases:
+    - exclusive: False
+      regex: "#jabber_.*"
