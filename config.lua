@@ -27,6 +27,30 @@ plugin "httpevent" {
    -- host = "localhost";
 }
 
+plugin "matrix" {
+   -- Matrix home server (mandatory).
+   homeserver = "my.org";
+
+   -- Access token / Homeserver token (mandatory).
+   as_token = "...";
+   hs_token = "...";
+
+   -- If the homeserver URL is not specified, the result of querying
+   -- the _matrix._tcp SRV using DNS us used to construct the URL.
+   --
+   --homeserver_url = "...";
+
+   -- Prefixes used to map user names and MUC JIDs to Matrix user IDs
+   -- and room IDs. Matrix IDs will have these prefixes preprended to
+   -- the JID, and the homeserver name appended e.g. the user with JID
+   -- "john@doe.org" will be "@jabber_john@doe.org:my.org". These values
+   -- MUST match the corresponding values in the YAML snippet used to
+   -- inform Synapse of the application service.
+   --
+   --user_prefix = "@jabber_";
+   --room_prefix = "#jabber_";
+}
+
 plugin "urltitles" {
 	-- A lists of Lua patterns can be given to filter which URLs are
 	-- expanded and which ones are not. This is mostly used in a
