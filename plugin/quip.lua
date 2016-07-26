@@ -93,7 +93,7 @@ local function get_quip(bot, command)
 			if num == nil then
 				return "Invalid number: " .. command.param
 			end
-			if num < 0 or num > qdb.size then
+			if num < 1 or num > qdb.size then
 				return "Number out of bounds (max: " .. qdb.size .. ")"
 			end
 		else
