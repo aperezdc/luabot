@@ -6,6 +6,19 @@
 -- Distributed under terms of the MIT license.
 --
 
+-- Determine whether loading one of the modules without additional
+-- dependencies can be successfully loaded with the "luabot" prefix.
+-- In that case, we are using libraries installed by LuaRocks, and
+-- we need to modify "package.path" to prefix /luabot/ to the paths
+-- in order for the thirdparty modules to work.
+if (pcall(require, "luabot.util.basexx")) then
+   local prefixed_paths = {}
+   for path in package.path:gmatch("[^;]+") do
+      table.insert(prefixed_paths, (path:gsub("^([^%?]*)%?(.*)$", "%1luabot/?%2")))
+   end
+   package.path = table.concat(prefixed_paths, ";") .. package.path
+end
+
 -- Lua 5.2 needs this to be able to load Verse
 if _VERSION:match("^Lua 5%.2") then
 	package.path = package.path .. ";./?/init.lua"
