@@ -24,28 +24,21 @@ Installation
 4. *(Optional)* Depending on the enabled options, you may need to create
    additional directories, e.g. if the `keystore` plugin is enabled, create
    the directory configured for the `path` setting.
-5. *(Optional)* Depending on the enabled options, you may need to build
-   the optional modules.
+5. *(Optional)* Depending on the enabled options, you may need to install
+   the optional dependencies.
 6. Start the bot:
 
-
-Optional Modules
-----------------
-
-The `thirdparty/` subdirectory contains Git submodules for optional Lua
-modules which can be needed depending on the options enabled in the
-configuration file. The following commands will setup them all:
-
 ```sh
-git submodule init
-make -C thirdparty
+lua bot.lua config.lua
 ```
 
-If you only want to build a certain module, you can use instead:
 
-```sh
-make -C thirdparty <modulename>
-```
+Optional Dependencies
+---------------------
+
+* [lightningmdb](https://github.com/shmul/lightningmdb) can be used as a
+  backend for the `keystore` plugin. It is [available in
+  LuaRocks](https://luarocks.org/modules/shmul/lightningmdb).
 
 
 Licensing
