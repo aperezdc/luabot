@@ -108,6 +108,13 @@ local function check_path(path)
 end
 
 
+local option_path = {}
+option_path.__index = option_path
+
+setmetatable(option_path, { __call = function (self, path, copy)
+   return setmetatable(check_path(path), self)
+end })
+
 local function option_path_copy(path)
    local new_path = setmetatable({}, option_path)
    local n = 0
@@ -117,14 +124,6 @@ local function option_path_copy(path)
    end
    return new_path, n
 end
-
-
-local option_path = {}
-option_path.__index = option_path
-
-setmetatable(option_path, { __call = function (self, path, copy)
-   return setmetatable(check_path(path), self)
-end })
 
 function option_path:__tostring()
    return t_concat(self, ".")

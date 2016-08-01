@@ -86,7 +86,25 @@ describe("config.option_path", function ()
    it("can be compared", function ()
       assert.equal(config.option_path "a.b.c.d", config.option_path "a.b.c.d")
    end)
+
+   describe(".child()", function ()
+      it("creates child paths", function ()
+         local base_path = config.option_path "base.path"
+         local child_path = base_path:child "child"
+         assert.not_same(base_path, child_path)
+         assert.equal(config.option_path "base.path.child", child_path)
+      end)
+      it("can be chained", function ()
+         local base_path = config.option_path "base.path"
+         local child_path = base_path:child "foo" :child "bar"
+         assert.not_same(base_path, child_path)
+         assert.equal(config.option_path "base.path.foo.bar", child_path)
+      end)
+   end)
 end)
 
 describe("config.option", function ()
+   it("can have a default value", function ()
+
+   end)
 end)
