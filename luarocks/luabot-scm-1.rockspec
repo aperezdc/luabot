@@ -18,6 +18,7 @@ dependencies = {
    "luasec >= 0.6",
    "luaexpat >= 1.2",
    "luafilesystem >= 1.6",
+   "set >= 0.2"
 }
 build = {
    type = "builtin",
