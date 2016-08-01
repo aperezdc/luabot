@@ -1,0 +1,23 @@
+containers:
+  luabot:
+    setup:
+      - !Alpine v3.4
+      - !Install [lua5.3-socket, lua5.3-sec, lua5.3-expat, lua5.3-filesystem, lua5.3]
+
+commands:
+  shell: !Command
+    description: Enter a shell
+    container: luabot
+    run: /bin/sh
+  lua: !Command
+    description: Use the Lua REPL interpreter
+    container: luabot
+    run: /usr/bin/lua5.3
+  run: !Command
+    description: Runs luabot using 'config.lua' for configuration
+    container: luabot
+    run: /usr/bin/lua5.3 bot.lua config.lua
+  run-test: !Command
+    description: Runs luabot using 'testconfig.lua' for configuration
+    container: luabot
+    run: /usr/bin/lua5.3 bot.lua testconfig.lua
