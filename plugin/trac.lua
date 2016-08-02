@@ -200,6 +200,41 @@ local function assign_ticket(bot, event)
 end
 
 
+local ticket_comment_param_pattern = "^%s*%#?(%d+)%s+(.*)$"
+
+local function ticket_comment(bot, event)
+   local trac_url = event:config("trac", "url")
+   if not trac_url then
+      bot:warn("trac: Base URL was not configured")
+      return
+   end
+
+   local permissions = event:config("trac", "permissions", {})
+   local sender_jid = event.sender.real_jid or event.sender.jid
+   if not has_permission(bot, sender_jid, permissions.edit_ticket) then
+      return event:reply("You are not allowed to modify tickets")
+   end
+   if not event.param then
+      return event:reply("Usage: trac comment <id> <text>")
+   end
+   local ticket_id, comment = event.param:match(ticket_comment_param_pattern)
+   if not (ticket_id and comment) then
+      return event:reply("Usage: trac assign <id> <comment>")
+   end
+
+   local params = { tonumber(ticket_id), comment }
+   jsonrpc(bot, event, "ticket.update", params, function (result)
+      event:post(trac_url .. "/ticket/" .. result[1])
+      event:post(issue_status_format:format(result[1],
+                                            result[4].summary,
+                                            result[4].status,
+                                            result[4].owner,
+                                            result[4].priority,
+                                            result[4].severity))
+   end)
+end
+
+
 return function (bot)
    bot:add_plugin("commandevent")
 
@@ -228,6 +263,7 @@ return function (bot)
    end
 
    bot:hook("command/trac", bot.plugin.commandevent.dispatch {
+      comment = function (command) return ticket_comment(bot, command) end;
       assign = function (command) return assign_ticket(bot, command) end;
       add = add_ticket;
       create = add_ticket;
