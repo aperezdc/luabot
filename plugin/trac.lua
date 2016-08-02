@@ -20,34 +20,77 @@ local function new_request_id()
 end
 
 
-local json_get_ticket_template = [[{
-   "id"    : %d,
-   "method": "ticket.get",
-   "params": [%s]
-}]]
-local function json_request_get_ticket(issue_id)
+local function jsonrpc(bot, event, method, params, completed)
+   local trac_url = event:config("trac", "url")
+   if not trac_url then
+      bot:warn("trac: Base URL was not configured")
+      return
+   end
+
+   trac_url = trac_url .. "/"  -- Ensure that the URL ends in a slash.
+   local jsonrpc_url = trac_url .. "login/jsonrpc"
+   bot:debug("trac: URL %s, JSON-RPC %s", trac_url, jsonrpc_url)
+
    local request_id = new_request_id()
-   return json_get_ticket_template:format(request_id, issue_id), request_id
+   local http_options = {
+      headers = {
+         ["Content-Type"] = "application/json",
+      },
+      username = event:config("trac", "http_username"),
+      password = event:config("trac", "http_password"),
+      body = json.encode {
+         id = request_id,
+         method = tostring(method),
+         params = type(params) == "table" and params or { params },
+      }
+   }
+
+   urlfetch(jsonrpc_url, http_options, function (data, code)
+      if code ~= 200 then
+         bot:warn("trac: HTTP error %d: %s", code, data)
+         return
+      end
+      local response = json.decode(data)
+      if not response then
+         bot:warn("trac: Cannot decode JSON: %q", data)
+         return
+      end
+      if response.error ~= json.null then
+         bot:warn("trac: %s error: %s (%d)", response.error.name,
+                  response.error.message, response.error.code)
+         return
+      end
+      if response.id ~= request_id then
+         bot:warn("trac: JSON-RPC request id=%d, expected=%d", response.id, request_id)
+         return
+      end
+      completed(response.result)
+   end)
 end
 
 
-local function json_request_create_ticket(summary, description, user_jid)
-   local request_id = new_request_id()
-   return json.encode {
-      id = request_id,
-      method = "ticket.create",
-      params = {
-         summary,
-         description or summary,
-         { reporter = user_jid and (jid.split(user_jid)) }
-      }
-   }, request_id
+local issue_status_format = "#%d - %s (%s @%s) [P: %s, S: %s]"
+
+local function ticket_info(bot, event, ticket_id, show_url)
+   bot:debug("trac: ticket id=%s", ticket_id)
+   jsonrpc(bot, event, "ticket.get", ticket_id, function (result)
+      if show_url then
+         local trac_url = event:config("trac", "url")
+         if trac_url then
+            event:post(trac_url .. "/ticket/" .. result[1])
+         end
+      end
+      event:post(issue_status_format:format(result[1],
+                                            result[4].summary,
+                                            result[4].status,
+                                            result[4].owner,
+                                            result[4].priority,
+                                            result[4].severity))
+   end)
 end
 
 
 local issue_id_pattern = "%#(%d+)"
-local issue_status_format = "#%d - %s (%s @%s) [P: %s, S: %s]"
-
 
 local function handle_message_issue_ids(bot, event)
    if not event.body then
@@ -60,63 +103,16 @@ local function handle_message_issue_ids(bot, event)
       return
    end
 
-   local http_options = { headers = { ["Content-Type"] = "application/json" } }
-   do
-      local u = event:config("trac", "http_username")
-      local p = event:config("trac", "http_password")
-      if u and p then
-         http_options.username, http_options.password = u, p
-      end
-   end
-
-   trac_url = trac_url .. "/"  -- Ensure that the URL ends in a slash
-   local jsonrpc_url = trac_url .. "login/jsonrpc"
-   bot:debug("trac url=" .. trac_url .. " jsonrpc=" .. jsonrpc_url)
-
-   local url_pattern = strutil.escape_pattern(trac_url .. "ticket/") .. "(%d+)"
-   bot:debug("trac url pattern=" .. url_pattern)
-
-   local handle_issue = function (issue_id, add_url)
-      bot:debug("trac: issue id=" .. issue_id)
-      local request_id
-      http_options.body, request_id = json_request_get_ticket(issue_id)
-      urlfetch(jsonrpc_url, http_options, function (data, code)
-         if code ~= 200 then
-            bot:warn("trac: HTTP error code=" .. code)
-            return
-         end
-
-         local result = json.decode(data)
-         if result.error ~= json.null then
-            bot:warn("trac: JSON-RPC error=".. tostring(result.error))
-            return
-         end
-         if result.id ~= request_id then
-            bot:warn("trac: JSON-RPC request_id=" .. result.id .. " (expected=" .. request_id .. ")")
-            return
-         end
-
-         result = result.result
-         if add_url then
-            event:post(trac_url .. "ticket/" .. result[1])
-         end
-         event:post(issue_status_format:format(result[1],
-                                               result[4].summary,
-                                               result[4].status,
-                                               result[4].owner,
-                                               result[4].priority,
-                                               result[4].severity))
-      end)
-   end
+   local url_pattern = strutil.escape_pattern(trac_url .. "/ticket/") .. "(%d+)"
+   bot:debug("trac: url pattern %q", url_pattern)
 
    -- Try to match issue URLs
    for issue_id in event.body:gmatch(url_pattern) do
-      handle_issue(issue_id, false)
+      ticket_info(bot, event, issue_id, false)
    end
-
    -- And now for plain #NNNN identifiers
    for issue_id in event.body:gmatch(issue_id_pattern) do
-      handle_issue(issue_id, true)
+      ticket_info(bot, event, issue_id, true)
    end
 end
 
@@ -151,39 +147,14 @@ local function create_ticket(bot, event)
       return event:reply("No description was given")
    end
 
-   local http_options = { headers = { ["Content-Type"] = "application/json" } }
-   do
-      local u = event:config("trac", "http_username")
-      local p = event:config("trac", "http_password")
-      if u and p then
-         http_options.username, http_options.password = u, p
-      end
-   end
-
-   trac_url = trac_url .. "/"  -- Ensure that the URL ends in a slash
-   local jsonrpc_url = trac_url .. "login/jsonrpc"
-   bot:debug("trac: URL %s, JSON-RPC endpoint %s", trac_url, jsonrpc_url)
-
-   local request_id
-   http_options.body, request_id = json_request_create_ticket(event.param, nil, sender_jid)
-   urlfetch(jsonrpc_url, http_options, function (data, code)
-      if code ~= 200 then
-         bot:warn("trac: HTTP error code=" .. code)
-         return
-      end
-
-      local result = json.decode(data)
-      if result.error ~= json.null then
-         bot:warn("trac: JSON-RPC error=".. tostring(result.error))
-         return
-      end
-      if result.id ~= request_id then
-         bot:warn("trac: JSON-RPC request_id=" .. result.id .. " (expected=" .. request_id .. ")")
-         return
-      end
-
-      result = result.result
-      event:post("Issue #" .. result .. " created: " .. trac_url .. "ticket/" .. result)
+   local params = {
+      event.param,              -- Summary
+      event.param,              -- Description
+      (jid.split(sender_jid)),  -- Reporter
+   }
+   jsonrpc(bot, event, "ticket.create", params, function (result)
+      event:reply("#" .. result .. " created by " .. event.sender.nick)
+      ticket_info(bot, event, result, true)
    end)
    return true
 end
@@ -192,8 +163,37 @@ end
 return function (bot)
    bot:add_plugin("commandevent")
 
+   local function get_ticket_info(command)
+      bot:debug("trac: get: %s", command.param)
+      if command.param and #command.param > 0 then
+         local ticket_id
+         if command.param:sub(1, 1) == "#" then
+            ticket_id = tonumber(command.param:sub(2))
+         else
+            ticket_id = tonumber(command.param)
+         end
+         if ticket_id then
+            ticket_info(bot, command, ticket_id, true)
+         else
+            event:reply("Invalid ticket ID: '" .. command.param .. "'")
+         end
+      else
+         event:reply("No ticket ID specified")
+      end
+      return true
+   end
+
+   local function add_ticket(command)
+      return create_ticket(bot, command)
+   end
+
    bot:hook("command/trac", bot.plugin.commandevent.dispatch {
-      add = function (command) return create_ticket(bot, command) end;
+      add = add_ticket;
+      create = add_ticket;
+      ticket = get_ticket_info;
+      issue = get_ticket_info;
+      get = get_ticket_info;
+      _ = get_ticket_info;
    })
 
    local function handle_message(event)
