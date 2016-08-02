@@ -9,6 +9,7 @@
 local urlfetch = require "util.urlfetch"
 local strutil  = require "util.strutil"
 local json     = require "util.json"
+local jid      = require "util.jid"
 
 
 -- Generator for JSON-RPC request identifiers
@@ -27,6 +28,20 @@ local json_get_ticket_template = [[{
 local function json_request_get_ticket(issue_id)
    local request_id = new_request_id()
    return json_get_ticket_template:format(request_id, issue_id), request_id
+end
+
+
+local function json_request_create_ticket(summary, description, user_jid)
+   local request_id = new_request_id()
+   return json.encode {
+      id = request_id,
+      method = "ticket.create",
+      params = {
+         summary,
+         description or summary,
+         { reporter = user_jid and (jid.split(user_jid)) }
+      }
+   }, request_id
 end
 
 
@@ -105,7 +120,82 @@ local function handle_message_issue_ids(bot, event)
    end
 end
 
+
+local function has_permission(bot, jid, allowed_patterns)
+   if allowed_patterns then
+      for _, pattern in ipairs(allowed_patterns) do
+         bot:debug("trac: check match(%q, %q)", jid, pattern)
+         if strutil.simple_match(jid, pattern) then
+            return true
+         end
+      end
+   end
+   return false
+end
+
+
+local function create_ticket(bot, event)
+   local trac_url = event:config("trac", "url")
+   if not trac_url then
+      bot:warn("trac: Base URL was not configured")
+      return
+   end
+
+   local permissions = event:config("trac", "permissions", {})
+   local sender_jid = event.sender.real_jid or event.sender.jid
+   if not has_permission(bot, sender_jid, permissions.create_ticket) then
+      return event:reply("You are not allowed to create tickets")
+   end
+
+   if not event.param then
+      return event:reply("No description was given")
+   end
+
+   local http_options = { headers = { ["Content-Type"] = "application/json" } }
+   do
+      local u = event:config("trac", "http_username")
+      local p = event:config("trac", "http_password")
+      if u and p then
+         http_options.username, http_options.password = u, p
+      end
+   end
+
+   trac_url = trac_url .. "/"  -- Ensure that the URL ends in a slash
+   local jsonrpc_url = trac_url .. "login/jsonrpc"
+   bot:debug("trac: URL %s, JSON-RPC endpoint %s", trac_url, jsonrpc_url)
+
+   local request_id
+   http_options.body, request_id = json_request_create_ticket(event.param, nil, sender_jid)
+   urlfetch(jsonrpc_url, http_options, function (data, code)
+      if code ~= 200 then
+         bot:warn("trac: HTTP error code=" .. code)
+         return
+      end
+
+      local result = json.decode(data)
+      if result.error ~= json.null then
+         bot:warn("trac: JSON-RPC error=".. tostring(result.error))
+         return
+      end
+      if result.id ~= request_id then
+         bot:warn("trac: JSON-RPC request_id=" .. result.id .. " (expected=" .. request_id .. ")")
+         return
+      end
+
+      result = result.result
+      event:post("Issue #" .. result .. " created: " .. trac_url .. "ticket/" .. result)
+   end)
+   return true
+end
+
+
 return function (bot)
+   bot:add_plugin("commandevent")
+
+   bot:hook("command/trac", bot.plugin.commandevent.dispatch {
+      add = function (command) return create_ticket(bot, command) end;
+   })
+
    local function handle_message(event)
       return handle_message_issue_ids(bot, event)
    end

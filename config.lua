@@ -83,6 +83,15 @@ plugin "trac" {
    -- Optionally, the plugin supports HTTP authentication to access the API.
    --http_username = "botuser";
    --http_password = "botpass";
+
+   -- Defines which JIDs are allowed to perform actions which modify data in
+   -- Trac. Of course, the credentials used by the bot to access Trac also
+   -- need to have permission to perform the actions.
+   permissions = {
+      create_ticket = {
+         "*@domain.com/*",
+      };
+   };
 }
 
 -- Receives notifications from GitHub repositories using a webhook.
