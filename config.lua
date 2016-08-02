@@ -89,7 +89,11 @@ plugin "trac" {
    -- need to have permission to perform the actions.
    permissions = {
       create_ticket = {
-         "*@domain.com/*",
+         "*@domain.com/*";
+      };
+      edit_ticket = {
+         "admin@domain.com/*";
+         "john@doe.org/*";
       };
    };
 }
