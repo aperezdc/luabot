@@ -250,10 +250,10 @@ return function (bot)
          if ticket_id then
             ticket_info(bot, command, ticket_id, true)
          else
-            event:reply("Invalid ticket ID: '" .. command.param .. "'")
+            command:reply("Invalid ticket ID: '" .. command.param .. "'")
          end
       else
-         event:reply("No ticket ID specified")
+         command:reply("No ticket ID specified")
       end
       return true
    end
