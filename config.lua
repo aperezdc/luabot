@@ -103,6 +103,12 @@ plugin "trac" {
 -- for an example on how to specify the repository and secret key.
 plugin "github" {}
 
+-- Receives notifications from Travis-CI builds using a webhook. This needs
+-- the "httpevent" plugin above configured. See below for an example on how to
+-- specify the user token. More info:
+-- https://docs.travis-ci.com/user/notifications#Webhook-notification
+plugin "travis" {}
+
 -- These two make use of the "shortcuts" plugin, which is disabled by
 -- default, and is usually enabled in a per-room basis (see below).
 plugin "dsa" {}
@@ -143,5 +149,15 @@ room "luabot-dev@conference.domain.com" {
          repo = "aperezdc/luabot";
          secret = "this is super secret";
       };
+   };
+
+   travis = {
+      -- Enables the webhook receiver. The URL for the webook is the JID of the
+      -- room, prefixed with "travis/". For this rxample, the URL to configure
+      -- in Travis would be:
+      --
+      --   http://luabothost:8888/travis/luabot-dev@conference.domain.com
+      --
+      token = "super secret token";
    };
 }
