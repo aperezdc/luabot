@@ -27,6 +27,21 @@ plugin "httpevent" {
    -- host = "localhost";
 }
 
+plugin "webhook" {
+   -- Allows incoming messages by exposing a /webhook endpoint. The hook
+   -- accepts JSON formatted messages like the following:
+   --
+   --   { "mucs": [...],  "jids": [...], "text": "Message" }
+   --
+   -- See the plugin/webhook.lua file header for details. The client needs to
+   -- send a X-WebHook-Signature header containing the HMAC-SHA1 of the JSON
+   -- body POSTted to the endpoint via HTTP:
+   --
+   --   X-WebHook-Signature: sha1=<hexstring>
+   --
+   secret = "random-token";
+}
+
 plugin "urltitles" {
 	-- A lists of Lua patterns can be given to filter which URLs are
 	-- expanded and which ones are not. This is mostly used in a
