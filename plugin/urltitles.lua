@@ -110,10 +110,11 @@ local function handle_urltitles(bot, cache, event)
       local last_fetch_time = 0
       if cached then
          local elapsed = now - cached.time
+         last_fetch_time = cached.time
          if elapsed > max_cache_time then
             bot:debug("urltitles: cache expired: %s", url)
             cache:set(url, nil)  -- Remove from cache.
-            cached = nil
+            last_fetch_time, cached = 0, nil
          elseif cached.fetch_error then
             bot:debug("urltitles: error in cache: %s: %s", tostring(cached.fetch_error), url)
             return
@@ -122,7 +123,6 @@ local function handle_urltitles(bot, cache, event)
             event:post(cached.info)
             return
          end
-         last_fetch_time = cached.time
       end
 
       local max_fetch_size = tonumber(bot:get_config("urltitles",
