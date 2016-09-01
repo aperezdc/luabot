@@ -25,6 +25,8 @@ plugin "httpevent" {
    -- a port is not configured the web server won't be available.
    port = 8888;
    -- host = "localhost";
+
+   max_request_size = 512 * 1024;  -- 512 KiB
 }
 
 plugin "webhook" {

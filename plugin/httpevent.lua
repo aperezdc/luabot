@@ -9,6 +9,8 @@
 return function (bot)
    local port = bot:get_config("httpevent", "port")
    local host = bot:get_config("httpevent", "host", "*")
+   local max_size = tonumber(bot:get_config("httpevent",  -- 1 MiB by default
+                                            "max_request_size", 1024 * 1024))
    if not port then
       bot:debug("httpserver: No port configured, plugin disabled")
       return
@@ -32,8 +34,14 @@ return function (bot)
             return
          end
          local http_event_name = method:upper() .. " " .. host .. uri
-         server.add_handler(http_event_name, function (...)
-            return bot:event(name, ...)
+         server.add_handler(http_event_name, function (event)
+            if (event.request.headers.content_length and
+                tonumber(event.request.headers.content_length) > max_size) or
+               (event.request.body and #event.request.body > max_size)
+            then
+               return 400  -- Bad Request (maximum allowed size exceeded)
+            end
+            return bot:event(name, event)
          end)
          bot:debug("httpevent: added HTTP handler '" .. http_event_name .. "'")
       end
