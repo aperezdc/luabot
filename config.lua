@@ -51,6 +51,11 @@ plugin "urltitles" {
 	--
 	-- include = {};
 	-- exclude = {};
+
+   cache_size = 500;
+   max_cache_time = 10 * 60;  -- 10min
+   cache_recheck_time = 1 * 60;  -- 1min
+   max_fetch_size = 1024 * 1024;  -- 1 MiB
 }
 plugin "keystore" {
 	backend = "filesystem";
