@@ -38,6 +38,9 @@ local mime_type_pattern = "^%s*([%w%-%.]+/[%w%-%.]+).*$"
 local supported_mime_types = {
    ["text/html"] = true;
 }
+local allow_missing_length_mime_types = {
+   ["text/html"] = true;
+}
 
 local function identity(x) return x end
 
@@ -165,15 +168,17 @@ local function handle_urltitles(bot, cache, event)
          end
 
          local content_length = response.headers["content-length"]
-         if not content_length then
-            bot:warn("urltitles: no Content-Length in HEAD %s", url)
+         if content_length then
+            if tonumber(content_length) > max_fetch_size then
+               bot:debug("urltitles: Content-Length is %d (max %d): %s",
+               content_length, max_fetch_size, url)
+               cache:set(url, { fetch_error = "Content-Length too big", time = now })
+               return
+            end
+         elseif not allow_missing_length_mime_types[content_type] then
+            bot:warn("urltitles: no Content-Length in HEAD is large: %s (%s)",
+                  url, content_type)
             cache:set(url, { fetch_error = "No Content-Length in HEAD", time = now })
-            return
-         end
-         if tonumber(content_length) > max_fetch_size then
-            bot:debug("urltitles: Content-Length is %d (max %d): %s",
-            content_length, max_fetch_size, url)
-            cache:set(url, { fetch_error = "Content-Length too big", time = now })
             return
          end
 
