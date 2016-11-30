@@ -191,7 +191,7 @@ local function makedirs(path)
    if path:sub(1, 1) == "/" then
       parts[1] = ""  -- An empty string ensures that the leading slash is added.
    end
-   for part in string.gmatch(path, "[^/]+") do
+   for part in path:gmatch("[^/]+") do
       parts[#parts + 1] = part
    end
    if #parts > 1 then
@@ -228,7 +228,7 @@ local function basename(path)
   for part in path:gmatch("[^/]+") do
     last_part = part
   end
-  return part
+  return last_part
 end
 
 function meeting:_save_logfile(logdir, logname)
