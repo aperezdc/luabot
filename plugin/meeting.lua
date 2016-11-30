@@ -223,6 +223,14 @@ local function dirname(path)
    return table.concat(parts, "/")
 end
 
+local function basename(path)
+  local last_part = nil
+  for part in path:gmatch("[^/]+") do
+    last_part = part
+  end
+  return part
+end
+
 function meeting:_save_logfile(logdir, logname)
 	local textlog = io.open(logdir .. "/" .. logname .. ".log.txt", "w")
 	local htmllog = io.open(logdir .. "/" .. logname .. ".log.html", "w")
@@ -270,7 +278,7 @@ function meeting:_save_minutes(logdir, logname)
 		starttime = self.time_text,
 		title = self.title,
 		owner = self.owner,
-		logname = logname,
+		logname = basename(logname),
 	}
 	minutes:write(render_html_minutes_header(item))
 	mdminutes:write(render_md_minutes_header(item))
