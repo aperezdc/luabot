@@ -213,6 +213,9 @@ end
 
 local function dirname(path)
    local parts = {}
+   if path:sub(1, 1) == "/" then
+      parts[1] = ""  -- An empty string ensures that the leading slash is added.
+   end
    for part in string.gmatch(path, "[^/]+") do
       parts[#parts + 1] = part
    end
